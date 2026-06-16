@@ -34,8 +34,27 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      - name: Resolve package version
+        id: ver
+        run: echo "version=$(node -p "require('./packages/connected/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Idempotent: re-tagging or re-running must not fail on an already-published
+      # version. Only publish when this version is not yet on the registry.
+      - name: Check the registry
+        id: published
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          if npm view "loupe-cli@$VERSION" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "loupe-cli@$VERSION is already published; nothing to do."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # prepack rebuilds the self-contained bundle, then pnpm publishes it.
       - name: Publish loupe-cli
+        if: steps.published.outputs.exists == 'false'
         run: pnpm --filter loupe-cli publish --no-git-checks --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
