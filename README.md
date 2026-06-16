@@ -91,7 +91,9 @@ its own repo, and calls `goldeye_reverify` to show the score climb. No LLM crede
 your machine. For sessions where no agent is attached, a bare stdio server
 (`pnpm --filter @goldeye/connected mcp`) and a spawn fallback (`claude -p`, `codex exec`)
 remain. The WS bridge binds loopback and accepts only `chrome-extension://` origins; the HTTP
-endpoint rejects any request that carries a browser `Origin` header.
+endpoint rejects any request that carries a browser `Origin` header. For extra hardening,
+`goldeye serve --token` prints a one-time token the bridge then requires; paste it into the
+Lens panel's token field.
 
 ## Verification
 

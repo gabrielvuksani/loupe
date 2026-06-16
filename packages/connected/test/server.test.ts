@@ -182,4 +182,37 @@ describe("WebSocket bridge", () => {
     ws.close();
     await new Promise<void>((r) => wss.close(() => r()));
   });
+
+  it("with a token set, rejects a connection that omits it", async () => {
+    const wss = startBridge(0, undefined, "s3cret");
+    const port = await listeningPort(wss);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}`, { origin: "chrome-extension://abc123" });
+
+    const rejected = await new Promise<boolean>((resolve) => {
+      ws.on("open", () => resolve(false));
+      ws.on("error", () => resolve(true));
+      ws.on("unexpected-response", () => resolve(true));
+    });
+
+    expect(rejected).toBe(true);
+    ws.close();
+    await new Promise<void>((r) => wss.close(() => r()));
+  });
+
+  it("with a token set, accepts a connection that supplies the matching token", async () => {
+    const wss = startBridge(0, undefined, "s3cret");
+    const port = await listeningPort(wss);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/?token=s3cret`, {
+      origin: "chrome-extension://abc123",
+    });
+
+    const opened = await new Promise<boolean>((resolve) => {
+      ws.on("open", () => resolve(true));
+      ws.on("error", () => resolve(false));
+    });
+
+    expect(opened).toBe(true);
+    ws.close();
+    await new Promise<void>((r) => wss.close(() => r()));
+  });
 });

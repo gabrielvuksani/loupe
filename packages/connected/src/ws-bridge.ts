@@ -8,6 +8,7 @@ import { runDispatch, type AgentName } from "./agents";
 export function startBridge(
   port = 8791,
   store: SelectionStore = createSelectionStore(),
+  token?: string,
 ): WebSocketServer {
   const wss = new WebSocketServer({
     port,
@@ -15,8 +16,16 @@ export function startBridge(
     // Only the extension (chrome-extension://) or a local non-browser client
     // (no Origin header, e.g. tests) may connect. This rejects any visited web
     // page, which could otherwise drive the dispatch handler as a drive-by RCE.
-    verifyClient: (info: { origin?: string }) =>
-      !info.origin || info.origin.startsWith("chrome-extension://"),
+    // When a token is set (opt-in via `serve --token`), the connection must also
+    // carry a matching ?token= query: belt-and-suspenders against a local
+    // non-browser actor.
+    verifyClient: (info: { origin?: string; req?: { url?: string } }) => {
+      const originOk = !info.origin || info.origin.startsWith("chrome-extension://");
+      if (!originOk) return false;
+      if (!token) return true;
+      const query = (info.req?.url ?? "").split("?")[1] ?? "";
+      return new URLSearchParams(query).get("token") === token;
+    },
   });
   wss.on("connection", (ws: WebSocket) => {
     ws.on("message", (data) => {

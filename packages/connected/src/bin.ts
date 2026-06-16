@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { runMcp } from "./mcp-server";
 import { startBridge } from "./ws-bridge";
 import { startHttpMcp, DEFAULT_HTTP_PORT } from "./http-mcp";
@@ -6,11 +7,18 @@ import { createSelectionStore } from "./selection-store";
 const mode = process.argv[2];
 const store = createSelectionStore();
 
+// Opt-in via `serve --token`: the bridge then requires a matching ?token= from
+// the Lens. Off by default so Connected mode works with no extra step.
+const token = process.argv.includes("--token") ? randomUUID() : undefined;
+
 // All logs go to stderr: in stdio MCP mode stdout is the protocol channel.
 function launchBridge(): void {
-  const wss = startBridge(8791, store);
+  const wss = startBridge(8791, store, token);
   wss.on("error", (e: unknown) => console.error(`goldeye · bridge error: ${String(e)}`));
-  wss.on("listening", () => console.error("goldeye · WebSocket bridge on ws://127.0.0.1:8791"));
+  wss.on("listening", () => {
+    console.error("goldeye · WebSocket bridge on ws://127.0.0.1:8791");
+    if (token) console.error(`goldeye · bridge token (paste into the Lens panel): ${token}`);
+  });
 }
 
 function launchHttpMcp(): void {

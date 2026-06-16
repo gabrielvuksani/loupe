@@ -58,6 +58,7 @@ function setMode(m: Mode): void {
   const showRoot = m === "connected";
   $("rootLabel").style.display = showRoot ? "block" : "none";
   $("root").style.display = showRoot ? "block" : "none";
+  $("token").style.display = showRoot ? "block" : "none";
   pushMode();
   if (m === "connected") connectWs();
   else {
@@ -67,7 +68,11 @@ function setMode(m: Mode): void {
 }
 function connectWs(): void {
   try {
-    ws = new WebSocket("ws://127.0.0.1:8791");
+    const token = ($("token") as HTMLInputElement).value.trim();
+    const url = token
+      ? `ws://127.0.0.1:8791/?token=${encodeURIComponent(token)}`
+      : "ws://127.0.0.1:8791";
+    ws = new WebSocket(url);
     ws.addEventListener("open", () => toast("Engine connected"));
     ws.addEventListener("error", () =>
       toast("Engine offline. Start: pnpm --filter @goldeye/connected serve"),
