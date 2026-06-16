@@ -29,23 +29,29 @@ export function screenshotImg(screenshot: string | undefined): string {
   return `<img class="lp-shot" alt="" src="${escapeHtml(screenshot)}" />`;
 }
 
-// The popover's inner HTML for a selected element: verdict, findings, actions.
-// Every interpolated value is escaped; the host page never injects markup.
+// The popover's inner HTML for a selected element. Option B: element-led. The
+// header says what the element is and its accessible name; the score is a small
+// muted pill; the primary action is the full-width anchor; findings collapse
+// behind a disclosure. Every interpolated value is escaped; the host page never
+// injects markup.
 export function popoverHtml(packet: ElementPacket, opts: PopoverOpts): string {
-  const findings = packet.findings.length
-    ? packet.findings.map(findingRow).join("")
-    : `<div class="lp-empty">Passes loupe's deterministic checks. Still dispatchable.</div>`;
-  const send = opts.connected
-    ? `<button class="lp-act lp-gold" data-action="send">Send to ${escapeHtml(opts.agent)}</button>`
-    : "";
-  // Preview only makes sense when there is a computed fix to apply on the page.
-  const preview = packet.fixes.length
-    ? `<button class="lp-act" data-action="preview">Preview fix</button>`
-    : "";
-  const text = packet.text ? `<div class="lp-text">"${escapeHtml(packet.text)}"</div>` : "";
-  const shot = screenshotImg(packet.screenshot);
-  // Size, on-screen position, and the unambiguous target path: the same locating
-  // signals the packet carries, surfaced on the page so a weak model can act.
+  // Lead with the element: tag, its role when that adds information, and the
+  // accessible name a human reads, so identity comes before judgement.
+  const role = packet.a11y?.role;
+  const name = packet.a11y?.name;
+  const ident =
+    `<span class="lp-tag">${escapeHtml(packet.tag)}</span>` +
+    (role && role !== packet.tag ? `<span class="lp-role">${escapeHtml(role)}</span>` : "") +
+    (name ? `<span class="lp-name">${escapeHtml(name)}</span>` : "");
+  // The score is demoted to a muted pill; the green climb pill on a re-verify is
+  // the one moment it earns emphasis, since the climb is the loop's payoff.
+  const score =
+    typeof opts.climbFrom === "number" && opts.climbFrom !== packet.score
+      ? `<span class="lp-score lp-climb">${opts.climbFrom} &rarr; ${packet.score}/100</span>`
+      : `<span class="lp-score">${packet.score}/100</span>`;
+
+  // Size, on-screen position, and the unambiguous target path: the locating
+  // signals the packet carries, surfaced so a weak model can act.
   const pos = packet.box
     ? `${Math.round(packet.box.width)}x${Math.round(packet.box.height)}px` +
       (packet.box.x !== undefined && packet.box.y !== undefined
@@ -60,22 +66,36 @@ export function popoverHtml(packet: ElementPacket, opts: PopoverOpts): string {
           target ? `<span class="lp-utarget">${escapeHtml(target)}</span>` : ""
         }</div>`
       : "";
-  // After a re-verify, show the before to after climb: the loop's payoff.
-  const score =
-    typeof opts.climbFrom === "number" && opts.climbFrom !== packet.score
-      ? `<span class="lp-score lp-climb">${opts.climbFrom} &rarr; ${packet.score}/100</span>`
-      : `<span class="lp-score">${packet.score}/100</span>`;
-  return `<div class="lp-head">
-      <span class="lp-tag">${escapeHtml(packet.tag)}</span>
-      <span class="lp-sel">${escapeHtml(packet.selector)}</span>
-      ${score}
-    </div>
+
+  const text = packet.text ? `<div class="lp-text">"${escapeHtml(packet.text)}"</div>` : "";
+  const shot = screenshotImg(packet.screenshot);
+
+  // The primary action is the full-width anchor: dispatch when connected, copy
+  // the packet when standalone. Copy stays as a secondary in connected, and
+  // Preview only when there is a computed fix to apply on the page.
+  const primary = opts.connected
+    ? `<button class="lp-act lp-gold" data-action="send">Send to ${escapeHtml(opts.agent)}</button>`
+    : `<button class="lp-act lp-gold" data-action="copy">Copy</button>`;
+  const copySecondary = opts.connected ? `<button class="lp-act" data-action="copy">Copy</button>` : "";
+  const preview = packet.fixes.length
+    ? `<button class="lp-act" data-action="preview">Preview fix</button>`
+    : "";
+  const sub = copySecondary || preview ? `<div class="lp-subact">${copySecondary}${preview}</div>` : "";
+
+  // Findings collapse behind a disclosure, default collapsed: the popover is the
+  // quick change surface; the side panel carries the full findings detail.
+  const n = packet.findings.length;
+  const findings = n
+    ? `<details class="lp-findings"><summary>${n} finding${n === 1 ? "" : "s"}</summary>${packet.findings
+        .map(findingRow)
+        .join("")}</details>`
+    : `<div class="lp-empty">Passes loupe's checks. Still dispatchable.</div>`;
+
+  return `<div class="lp-head">${ident}${score}</div>
+    <div class="lp-selrow"><span class="lp-sel">${escapeHtml(packet.selector)}</span></div>
     ${meta}
     ${shot}
     ${text}
-    <div class="lp-findings">${findings}</div>
-    <div class="lp-actions">${send}
-      <button class="lp-act" data-action="copy">Copy</button>
-      ${preview}
-    </div>`;
+    <div class="lp-actions">${primary}${sub}</div>
+    ${findings}`;
 }

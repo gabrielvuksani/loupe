@@ -79,4 +79,20 @@ describe("popoverHtml", () => {
     expect(html).toMatch(/72\s*&rarr;/);
     expect(html).toContain(`${packet.score}/100`);
   });
+
+  it("leads the header with the accessible name so the element is identified first", () => {
+    const named = buildPacket(
+      { selector: ".cta", tag: "button", a11y: { role: "button", name: "Get started" }, styles: {} },
+      [],
+    );
+    const html = popoverHtml(named, { connected: false, agent: "Codex" });
+    expect(html).toMatch(/Get started/);
+  });
+
+  it("collapses findings behind a disclosure, with the finding still in the markup", () => {
+    const html = popoverHtml(packet, { connected: false, agent: "Codex" });
+    expect(html).toContain("<details");
+    expect(html).toMatch(/\d+ finding/);
+    expect(html).toMatch(/contrast/);
+  });
 });

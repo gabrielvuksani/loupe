@@ -64,35 +64,51 @@ export default defineContentScript({
     };
 
     // ---------- popover (open shadow root, isolated from page CSS) ----------
+    // Option B surface: flat, solid, dark. No glass blur and no gold glow; the
+    // translucent panel read busy over varied page content. Gold is an accent on
+    // the border and the primary button only. Bigger hit targets on .lp-act.
     const POP_CSS = `
       .lp-pop { font-family: ui-sans-serif, system-ui, sans-serif; width: 300px; color: #f3f5f8;
-        background: rgba(20,23,31,.94); backdrop-filter: blur(14px); border: 1px solid rgba(232,181,74,.3);
-        border-radius: 14px; padding: 12px 13px; box-shadow: 0 18px 50px rgba(0,0,0,.5); font-size: 13px; }
-      .lp-head { display: flex; align-items: center; gap: 8px; }
-      .lp-tag { font-weight: 700; color: #f6cf6e; }
+        background: #161922; border: 1px solid rgba(232,181,74,.28);
+        border-radius: 12px; padding: 12px 13px; box-shadow: 0 12px 30px rgba(0,0,0,.45); font-size: 13px; }
+      .lp-head { display: flex; align-items: center; gap: 7px; }
+      .lp-tag { font-weight: 700; color: #f6cf6e; font-size: 13px; }
+      .lp-role { font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em; color: #8b93a3; }
+      .lp-name { font-size: 11.5px; color: #aab2c0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .lp-score { margin-left: auto; font-size: 10.5px; font-weight: 600; color: #8b93a3; white-space: nowrap;
+        background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); padding: 2px 8px; border-radius: 999px; }
+      .lp-climb { color: #5fd0a8; border-color: rgba(95,208,168,.4); background: rgba(95,208,168,.1); }
+      .lp-selrow { margin-top: 7px; }
       .lp-sel { font-family: ui-monospace, monospace; font-size: 10px; color: #e8b54a;
-        background: rgba(232,181,74,.12); padding: 2px 6px; border-radius: 5px; flex: 1;
-        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .lp-score { font-weight: 700; }
-      .lp-climb { color: #5fd0a8; }
-      .lp-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; font-size: 10px; color: #8b93a3; }
+        background: rgba(232,181,74,.1); padding: 2px 6px; border-radius: 5px; display: inline-block; max-width: 100%;
+        vertical-align: bottom; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .lp-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 7px; font-size: 10px; color: #8b93a3; }
       .lp-utarget { font-family: ui-monospace, monospace; color: #e8b54a; background: rgba(232,181,74,.1);
         padding: 1px 5px; border-radius: 4px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .lp-shot { display: block; width: 100%; max-height: 150px; object-fit: contain;
-        margin: 9px 0 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.25); }
-      .lp-text { color: #aab2c0; font-size: 11.5px; margin: 7px 0; }
+      .lp-shot { display: block; width: 100%; max-height: 140px; object-fit: contain;
+        margin: 9px 0 2px; border-radius: 8px; border: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.25); }
+      .lp-text { color: #aab2c0; font-size: 11.5px; margin: 7px 0 0; }
+      .lp-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 11px; }
+      .lp-subact { display: flex; gap: 6px; }
+      .lp-act { font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; min-height: 34px; padding: 8px 12px;
+        border-radius: 9px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.05); color: #c4ccd8;
+        display: inline-flex; align-items: center; justify-content: center; flex: 1; transition: border-color .15s, color .15s; }
+      .lp-act:hover { border-color: rgba(232,181,74,.45); color: #f3f5f8; }
+      .lp-gold { width: 100%; background: linear-gradient(180deg, rgba(232,181,74,.96), #c8902f); color: #1a1407; border: 0; }
+      .lp-gold:hover { color: #1a1407; filter: brightness(1.04); }
+      .lp-findings { margin-top: 11px; border-top: 1px solid rgba(255,255,255,.08); padding-top: 9px; }
+      .lp-findings > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; font-size: 11px; color: #8b93a3; }
+      .lp-findings > summary::-webkit-details-marker { display: none; }
+      .lp-findings > summary::before { content: "\\203A"; display: inline-block; transition: transform .15s; color: #6c7689; }
+      .lp-findings[open] > summary::before { transform: rotate(90deg); }
       .lp-finding { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.1);
-        border-radius: 10px; padding: 9px 10px; margin: 8px 0; }
+        border-radius: 9px; padding: 8px 10px; margin: 8px 0 0; }
       .lp-finding b { font-size: 12px; }
-      .lp-finding p { margin: 4px 0; color: #aab2c0; font-size: 11px; line-height: 1.45; }
+      .lp-finding p { margin: 4px 0 0; color: #aab2c0; font-size: 11px; line-height: 1.45; }
       .lp-sev { display: inline-block; width: 7px; height: 7px; border-radius: 2px; margin-right: 6px; }
       .lp-high { background: #ff6b6b; } .lp-medium { background: #ffb454; } .lp-low { background: #6c7689; }
-      .lp-fix { font-family: ui-monospace, monospace; font-size: 10.5px; color: #5fd0a8; }
-      .lp-empty { color: #6c7689; font-size: 12px; padding: 8px 2px; }
-      .lp-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
-      .lp-act { font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; padding: 7px 11px;
-        border-radius: 8px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.05); color: #aab2c0; }
-      .lp-gold { background: linear-gradient(180deg, rgba(232,181,74,.95), #c8902f); color: #1a1407; border: 0; flex: 1; }`;
+      .lp-fix { font-family: ui-monospace, monospace; font-size: 10.5px; color: #5fd0a8; margin-top: 4px; }
+      .lp-empty { color: #6c7689; font-size: 11.5px; padding: 9px 2px 2px; }`;
 
     const ensurePopover = (): void => {
       if (popHost) return;
@@ -423,6 +439,15 @@ export default defineContentScript({
       if (e.key === "Escape") {
         e.preventDefault();
         stopInspecting();
+        return;
+      }
+      // Enter fires the primary action when a selection is open: dispatch in
+      // Connected, copy the packet in Standalone. Keyboard-first, no mouse reach.
+      if (e.key === "Enter" && current) {
+        e.preventDefault();
+        const act = mode === "connected" ? "send" : "copy";
+        const btn = popBody?.querySelector<HTMLElement>(`[data-action="${act}"]`) ?? undefined;
+        onAction(act, btn);
       }
     };
     const startInspecting = (): void => {
