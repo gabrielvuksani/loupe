@@ -34,6 +34,16 @@ function toast(text: string): void {
   window.setTimeout(() => el.classList.remove("show"), 2200);
 }
 
+// Persistent engine status in the header: green connected, red offline, hidden
+// in Standalone where there is no engine to reach.
+function setConn(state: "on" | "off" | null): void {
+  const el = $("conn");
+  el.style.display = state ? "inline-block" : "none";
+  el.classList.toggle("on", state === "on");
+  el.classList.toggle("off", state === "off");
+  el.textContent = state === "on" ? "connected" : "offline";
+}
+
 function escapeHtml(s: string): string {
   return s.replace(
     /[&<>"']/g,
@@ -63,6 +73,8 @@ function setMode(m: Mode): void {
   $("root").style.display = showRoot ? "block" : "none";
   $("token").style.display = showRoot ? "block" : "none";
   $("request").style.display = showRoot ? "block" : "none";
+  $("requestLabel").style.display = showRoot ? "block" : "none";
+  setConn(showRoot ? "off" : null);
   // a mode switch changes what the audit measures, so reset the climb baselines
   lastPageScore = null;
   lastSelectorScore = null;
@@ -88,9 +100,16 @@ function connectWs(): void {
       ? `ws://127.0.0.1:8791/?token=${encodeURIComponent(token)}`
       : "ws://127.0.0.1:8791";
     ws = new WebSocket(url);
-    ws.addEventListener("open", () => toast("Engine connected"));
-    ws.addEventListener("error", () => toast("Engine offline. Run: loupe serve"));
+    ws.addEventListener("open", () => {
+      setConn("on");
+      toast("Engine connected");
+    });
+    ws.addEventListener("error", () => {
+      setConn("off");
+      toast("Engine offline. Run: loupe serve");
+    });
     ws.addEventListener("close", () => {
+      setConn("off");
       // Reconnect while still in Connected mode, e.g. after the daemon restarts.
       if (mode === "connected" && !wsReconnect) {
         wsReconnect = setTimeout(() => {

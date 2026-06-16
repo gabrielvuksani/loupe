@@ -42,6 +42,9 @@
       }
       .head .title { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; flex: 1; }
       .head .tag { font-family: "Geist Mono", monospace; font-size: 10px; color: var(--faint); }
+      .conn { font-family: "Geist Mono", monospace; font-size: 9px; padding: 2px 7px; border-radius: 6px; border: 1px solid var(--line); color: var(--faint); margin-left: auto; }
+      .conn.on { color: var(--mint); border-color: rgba(95, 208, 168, 0.35); }
+      .conn.off { color: var(--red); border-color: rgba(255, 107, 107, 0.3); }
       .wrap { padding: 14px 16px 60px; }
 
       .pills { display: grid; gap: 3px; padding: 4px; border-radius: 12px; background: rgba(0,0,0,0.28); border: 1px solid var(--line); }
@@ -105,6 +108,7 @@
         <circle cx="16" cy="16" r="5" fill="#f6cf6e"/><circle cx="16" cy="16" r="2" fill="#14171f"/>
       </svg>
       <span class="title">loupe</span><span class="tag mono">the lens</span>
+      <span class="conn mono" id="conn" style="display: none">offline</span>
     </div>
 
     <div class="wrap">
@@ -124,7 +128,8 @@
       <div class="label" id="rootLabel" style="display: none">Project root</div>
       <input id="root" class="rootInput" placeholder="/path/to/your/repo" style="display: none" />
       <input id="token" class="rootInput" placeholder="bridge token (only if serve --token)" style="display: none" />
-      <textarea id="request" class="rootInput" rows="2" placeholder="what do you want changed? e.g. make this the primary button (optional)" style="display: none; resize: vertical; font-family: inherit;"></textarea>
+      <div class="label" id="requestLabel" style="display: none">Change request (optional)</div>
+      <textarea id="request" class="rootInput" rows="2" placeholder="e.g. make this the primary button, add a hover state" style="display: none; resize: vertical; font-family: inherit;"></textarea>
 
       <div class="actions">
         <button class="btn" id="inspect">Inspect element</button>
