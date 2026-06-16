@@ -107,4 +107,17 @@ describe("HTTP MCP daemon", () => {
 
     await new Promise<void>((r) => httpServer.close(() => r()));
   });
+
+  it("answers a health check so users can confirm the daemon is up", async () => {
+    const httpServer = startHttpMcp(0);
+    const port = await httpPort(httpServer);
+
+    const res = await fetch(`http://127.0.0.1:${port}/health`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok?: boolean; service?: string };
+    expect(body.ok).toBe(true);
+    expect(body.service).toBe("goldeye");
+
+    await new Promise<void>((r) => httpServer.close(() => r()));
+  });
 });

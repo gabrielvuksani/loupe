@@ -39,7 +39,13 @@ export function startHttpMcp(
       res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32000, message: "origin not allowed" }, id: null }));
       return;
     }
-    if ((req.url ?? "/").split("?")[0] !== "/mcp") {
+    const path = (req.url ?? "/").split("?")[0];
+    if (path === "/health") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true, service: "goldeye", mcp: "/mcp" }));
+      return;
+    }
+    if (path !== "/mcp") {
       res.writeHead(404).end();
       return;
     }
