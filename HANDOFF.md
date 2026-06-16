@@ -20,7 +20,7 @@ docs/adr/0001 and in Engram (topic_key architecture/goldeye-loop).
 - packages/extension: WXT MV3 Lens. On-page shadow-DOM popover with full actions,
   axe-core in Standalone, a11y node + source + screenshot capture, publishes the
   selection and dispatches over the bridge. Side panel mirrors the selection.
-- 71 unit tests and 4 real-browser integration tests are green; a 5th gated
+- 73 unit tests and 4 real-browser integration tests are green; a 5th gated
   live-dispatch e2e was run live with Claude Code and passed. Typecheck clean across
   all 3 packages.
 
@@ -52,6 +52,9 @@ agent calls goldeye_get_selection, edits its own repo, then calls goldeye_reveri
   was blocked by an account usage limit that day, not a goldeye defect.
 
 ## Gotchas
+- The WS bridge binds 127.0.0.1 and rejects non-extension origins (verifyClient), so a
+  visited web page cannot drive the dispatch handler. Connected render paths reject
+  non-http(s) URLs, and runDispatch has a kill-on-timeout and an output cap.
 - Extension service workers need headed Chromium in Playwright tests; headless does not load them.
 - The content script bundles axe-core, so it is ~650KB. A future win is lazy-loading axe.
 - The MCP server uses the SDK low-level Server; the deprecation notice is cosmetic.
