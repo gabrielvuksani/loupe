@@ -13,4 +13,5 @@ BUILD_PLAN.md
 # internal docs, kept local; the public repo shows only the README
 HANDOFF.md
 NEXT_SESSION.md
+RELEASE.md
 docs/adr/
