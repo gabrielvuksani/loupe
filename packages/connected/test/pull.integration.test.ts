@@ -98,6 +98,7 @@ describe.runIf(live)("pull flow · real browser publishes, an HTTP MCP client pu
     await panel.goto(`chrome-extension://${extId}/sidepanel.html`, { waitUntil: "load" });
     await panel.click('#mode .pill[data-mode="connected"]');
     await panel.fill("#root", "/tmp/loupe-pull");
+    await panel.fill("#request", "make it the primary button");
     // The panel's WS reaching the bridge proves the chrome-extension:// origin is
     // accepted; wait on that rather than a blind timeout.
     const connected = await waitFor(() => wss.clients.size >= 1, 10000);
@@ -131,6 +132,8 @@ describe.runIf(live)("pull flow · real browser publishes, an HTTP MCP client pu
     // where the element sits, both captured by the real content script.
     expect(text).toContain("target:");
     expect(text).toMatch(/at viewport \(/);
+    // The user's request, typed in the Lens, reaches the pulling agent.
+    expect(text).toMatch(/User request: make it the primary button/);
     await client.close();
   }, 120000);
 });

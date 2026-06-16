@@ -85,6 +85,22 @@ describe("MCP server · selection pull", () => {
     await client.close();
   });
 
+  it("surfaces the user's request in the selection so a pulling agent acts on it", async () => {
+    const store = createSelectionStore();
+    const server = createServer(store);
+    const [clientT, serverT] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "test", version: "0" }, { capabilities: {} });
+    await Promise.all([server.connect(serverT), client.connect(clientT)]);
+
+    store.set(buildPacket(badButton, analyzeElement(badButton)));
+    store.setRequest("make it the primary button and bigger");
+
+    const res = await client.callTool({ name: "loupe_get_selection", arguments: {} });
+    const text = (res.content as Array<{ text: string }>)[0]?.text ?? "";
+    expect(text).toMatch(/User request: make it the primary button and bigger/);
+    await client.close();
+  });
+
   it("flows a selection published over the WS bridge into MCP get_selection via one shared store", async () => {
     const store = createSelectionStore();
     const server = createServer(store);

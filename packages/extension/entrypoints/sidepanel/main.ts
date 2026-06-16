@@ -61,6 +61,7 @@ function setMode(m: Mode): void {
   $("rootLabel").style.display = showRoot ? "block" : "none";
   $("root").style.display = showRoot ? "block" : "none";
   $("token").style.display = showRoot ? "block" : "none";
+  $("request").style.display = showRoot ? "block" : "none";
   // a mode switch changes what the audit measures, so reset the climb baselines
   lastPageScore = null;
   lastSelectorScore = null;
@@ -178,8 +179,9 @@ function doDispatch(): void {
       return;
     }
     if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "dispatch", agent, packet: lastPacket.packet, cwd }));
-      toast(`Dispatched to ${agent}`);
+      const request = ($("request") as HTMLTextAreaElement).value.trim();
+      ws.send(JSON.stringify({ type: "dispatch", agent, packet: lastPacket.packet, cwd, request }));
+      toast(request ? `Sent to ${agent} with your request` : `Dispatched to ${agent}`);
     } else {
       toast("Engine offline. Run: loupe serve");
     }
@@ -222,6 +224,13 @@ document.querySelectorAll("#mode .pill").forEach((b) =>
 document.querySelectorAll("#agent .pill").forEach((b) =>
   b.addEventListener("click", () => setAgent((b as HTMLElement).dataset["agent"] as string)),
 );
+// Keep the store's request current so a live, pulling agent sees the latest ask.
+$("request").addEventListener("change", () => {
+  if (mode === "connected" && ws?.readyState === WebSocket.OPEN && lastPacket) {
+    const request = ($("request") as HTMLTextAreaElement).value.trim();
+    ws.send(JSON.stringify({ type: "publish-selection", packet: lastPacket.packet, request }));
+  }
+});
 
 browser.runtime.onMessage.addListener((message: unknown) => {
   const msg = message as {
@@ -234,7 +243,8 @@ browser.runtime.onMessage.addListener((message: unknown) => {
   if (msg.type === "element-result" && msg.packet && msg.markdown) {
     renderPacket(msg.packet, msg.markdown);
     if (mode === "connected" && ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "publish-selection", packet: msg.packet }));
+      const request = ($("request") as HTMLTextAreaElement).value.trim();
+      ws.send(JSON.stringify({ type: "publish-selection", packet: msg.packet, request }));
     }
   } else if (msg.type === "page-result" && msg.findings && msg.score) {
     renderAudit(msg.findings, msg.score);

@@ -107,12 +107,14 @@ export function createServer(store: SelectionStore = createSelectionStore()): Se
             content: [{ type: "text", text: "No element is currently selected in the loupe Lens." }],
           };
         }
+        const request = store.getRequest();
+        const requestLine = request ? `\n\nUser request: ${request}` : "";
         const taste = store.getTaste();
         const tasteLine = taste
           ? `\n\nTaste: ${taste.score}/10 (agent)${taste.notes ? ` - ${taste.notes}` : ""}`
           : "";
         const content: Array<Record<string, unknown>> = [
-          { type: "text", text: packetToMarkdown(packet) + tasteLine },
+          { type: "text", text: packetToMarkdown(packet) + requestLine + tasteLine },
         ];
         const shot = packet.screenshot;
         if (typeof shot === "string" && shot.startsWith("data:image/")) {

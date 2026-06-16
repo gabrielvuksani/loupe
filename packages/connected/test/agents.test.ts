@@ -30,6 +30,20 @@ describe("composeDispatch: existing-session spawn fallback per agent", () => {
   });
 });
 
+describe("composeDispatch · user request", () => {
+  it("carries the user's requested change into the prompt alongside the context", () => {
+    const d = composeDispatch("Claude Code", packet, "/repo", "make it the primary blue and bigger");
+    const prompt = d.args.join("\n");
+    expect(prompt).toMatch(/make it the primary blue and bigger/);
+    expect(prompt).toMatch(/contrast/i);
+  });
+
+  it("falls back to fixing the findings when no request is given", () => {
+    const d = composeDispatch("Claude Code", packet, "/repo");
+    expect(d.args.join("\n")).toMatch(/highest-severity fix/i);
+  });
+});
+
 describe("composeTastePrompt", () => {
   it("asks for a 0 to 10 taste score and points back at the score tool", () => {
     const p = composeTastePrompt(packet);

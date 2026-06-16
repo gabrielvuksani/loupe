@@ -36,6 +36,7 @@ export function startBridge(
         packet?: unknown;
         agent?: AgentName;
         cwd?: string;
+        request?: string;
       };
       try {
         msg = JSON.parse(String(data));
@@ -73,6 +74,7 @@ export function startBridge(
           );
         } else if (msg.type === "publish-selection") {
           store.set((msg.packet as ElementPacket | undefined) ?? null);
+          if (typeof msg.request === "string" && msg.request.trim()) store.setRequest(msg.request);
           ws.send(JSON.stringify({ type: "ack", id: msg.id }));
         } else if (msg.type === "dispatch") {
           const { agent, packet, cwd } = msg;
@@ -86,8 +88,10 @@ export function startBridge(
               }),
             );
           } else {
+            const request = typeof msg.request === "string" && msg.request.trim() ? msg.request : undefined;
+            if (request) store.setRequest(request);
             ws.send(JSON.stringify({ type: "dispatch-status", id: msg.id, phase: "dispatching", agent }));
-            void runDispatch(agent, packet as ElementPacket, cwd).then((result) => {
+            void runDispatch(agent, packet as ElementPacket, cwd, request).then((result) => {
               ws.send(
                 JSON.stringify({
                   type: "dispatch-status",

@@ -16,12 +16,12 @@ export interface DispatchResult {
   stderr: string;
 }
 
-function buildPrompt(packet: ElementPacket): string {
-  return [
-    packetToMarkdown(packet),
-    "",
-    "Apply the highest-severity fix above to the source for this element. Make the smallest change that resolves the finding, then stop.",
-  ].join("\n");
+function buildPrompt(packet: ElementPacket, request?: string): string {
+  const want = (request ?? "").trim();
+  const instruction = want
+    ? `The user wants this change applied to the element above:\n"${want}"\n\nMake that change in the source for this element, keep the surrounding design consistent, then re-verify with loupe_reverify.`
+    : "Apply the highest-severity fix above to the source for this element. Make the smallest change that resolves the finding, then stop.";
+  return [packetToMarkdown(packet), "", instruction].join("\n");
 }
 
 // The prompt an agent uses to score taste. The engine never judges taste; this
@@ -40,8 +40,9 @@ export function composeDispatch(
   agent: AgentName,
   packet: ElementPacket,
   cwd: string,
+  request?: string,
 ): DispatchCommand {
-  const prompt = buildPrompt(packet);
+  const prompt = buildPrompt(packet, request);
   switch (agent) {
     case "Claude Code":
       return { cmd: "claude", args: ["-p", prompt, "--permission-mode", "acceptEdits"], cwd };
@@ -58,9 +59,10 @@ export function runDispatch(
   agent: AgentName,
   packet: ElementPacket,
   cwd: string,
+  request?: string,
   timeoutMs = 600000,
 ): Promise<DispatchResult> {
-  const { cmd, args } = composeDispatch(agent, packet, cwd);
+  const { cmd, args } = composeDispatch(agent, packet, cwd, request);
   return new Promise((resolve) => {
     const MAX_OUTPUT = 1_000_000;
     const child = spawn(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
