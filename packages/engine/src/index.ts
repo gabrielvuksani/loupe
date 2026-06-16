@@ -6,6 +6,7 @@ export { scoreFindings } from "./score";
 export { buildPacket, packetToMarkdown } from "./packet";
 export { reverifyElement, applyFix } from "./reverify";
 export { responsiveFindings } from "./responsive";
+export { colorVisionFindings, simulateCvd, svgColorMatrix, CVD_MATRICES } from "./vision";
 export type {
   ElementSnapshot,
   ElementStyles,
@@ -19,3 +20,4 @@ export type { Score } from "./score";
 export type { ElementPacket } from "./packet";
 export type { ReverifyResult } from "./reverify";
 export type { ViewportProbe } from "./responsive";
+export type { CvdType } from "./vision";

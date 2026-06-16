@@ -1,5 +1,6 @@
 import type { Finding, PageSnapshot } from "./types";
 import { converter } from "culori";
+import { colorVisionFindings } from "./vision";
 
 const toOklch = converter("oklch");
 const MIN_SCALE_RATIO = 1.25; // Refactoring UI: no two type-scale steps closer than 25%.
@@ -102,6 +103,10 @@ export function analyzePage(snapshot: PageSnapshot): Finding[] {
       message: `${accentHues.size} competing saturated accent colors. Limit accents to one or two and lean on neutrals.`,
     });
   }
+
+  // color-vision: saturated pairs that a sighted viewer separates by hue alone
+  // but a color-blind viewer cannot. Reuses the same palette as accent-spread.
+  findings.push(...colorVisionFindings(palette));
 
   // shades-per-color: a heavily reused accent flattened to one shade. Refactoring
   // UI: a real palette gives each color a range of shades.
