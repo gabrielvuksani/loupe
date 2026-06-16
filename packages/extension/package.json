@@ -1,11 +1,12 @@
 {
   "name": "@loupe/extension",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "loupe Lens. MV3 extension for deterministic design and a11y verdicts on any page, in-browser.",
   "scripts": {
     "dev": "wxt",
+    "icons": "node scripts/make-icons.mjs",
     "build": "wxt build",
     "prepare": "wxt prepare",
     "typecheck": "tsc --noEmit"
