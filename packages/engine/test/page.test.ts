@@ -84,6 +84,71 @@ describe("analyzePage: typography and palette taste rules", () => {
     expect(findings.find((x) => x.ruleId === "color-count")).toBeUndefined();
   });
 
+  it("flags too many competing saturated accent colors", () => {
+    const findings = analyzePage({
+      ...clean,
+      textColors: ["#111111", "#666666", "#e02020", "#20c020", "#2040e0", "#e0a020", "#9020e0"],
+    });
+    const f = findings.find((x) => x.ruleId === "accent-spread");
+    expect(f).toBeDefined();
+    expect(f?.category).toBe("taste");
+    expect(f?.message).toMatch(/accent|saturat/i);
+  });
+
+  it("does not flag greys plus a single accent", () => {
+    const findings = analyzePage({
+      ...clean,
+      textColors: ["#111111", "#444444", "#888888", "#2040e0"],
+    });
+    expect(findings.find((x) => x.ruleId === "accent-spread")).toBeUndefined();
+  });
+
+  it("treats near-neutral greys as no accent at all", () => {
+    const findings = analyzePage({
+      ...clean,
+      textColors: ["#111111", "#222222", "#333333", "#444444", "#555555"],
+    });
+    expect(findings.find((x) => x.ruleId === "accent-spread")).toBeUndefined();
+  });
+
+  it("flags a heavily reused saturated accent stuck at a single flat shade", () => {
+    const findings = analyzePage({
+      ...clean,
+      colorUsage: [
+        { color: "#111111", count: 20 },
+        { color: "#2040e0", count: 12 },
+      ],
+    });
+    const f = findings.find((x) => x.ruleId === "shades-per-color");
+    expect(f).toBeDefined();
+    expect(f?.category).toBe("taste");
+    expect(f?.message).toMatch(/shade/i);
+  });
+
+  it("does not flag a saturated accent used across several shades", () => {
+    const findings = analyzePage({
+      ...clean,
+      colorUsage: [
+        { color: "#111111", count: 20 },
+        { color: "#1a30b0", count: 6 },
+        { color: "#2040e0", count: 6 },
+        { color: "#6080f0", count: 6 },
+      ],
+    });
+    expect(findings.find((x) => x.ruleId === "shades-per-color")).toBeUndefined();
+  });
+
+  it("does not flag a lightly used accent at a single shade", () => {
+    const findings = analyzePage({
+      ...clean,
+      colorUsage: [
+        { color: "#111111", count: 20 },
+        { color: "#2040e0", count: 2 },
+      ],
+    });
+    expect(findings.find((x) => x.ruleId === "shades-per-color")).toBeUndefined();
+  });
+
   it("returns no findings for a page with a clean, consistent system", () => {
     expect(analyzePage(clean)).toEqual([]);
   });

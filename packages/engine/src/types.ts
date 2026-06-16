@@ -40,6 +40,10 @@ export interface PageSnapshot {
   fontWeights: number[];
   textColors: string[];
   spacings: number[];
+  // Each text or background color and how many elements use it. Optional so
+  // callers that build a snapshot by hand stay valid; the proportion rules skip
+  // when it is absent.
+  colorUsage?: Array<{ color: string; count: number }>;
 }
 
 export type FindingCategory = "a11y" | "taste" | "cross-browser";

@@ -54,6 +54,12 @@ function captureInPage(): { page: PageSnapshot; elements: ElementSnapshot[] } {
   const spac = new Set<number>();
   const sizes: number[] = [];
   const elements: ElementSnapshot[] = [];
+  const colorCount = new Map<string, number>();
+  const bumpColor = (c: string): void => {
+    if (c && c !== "transparent" && !/rgba?\([^)]*,\s*0\s*\)/.test(c)) {
+      colorCount.set(c, (colorCount.get(c) ?? 0) + 1);
+    }
+  };
 
   for (const el of Array.from(document.body?.querySelectorAll("*") ?? [])) {
     const txt = (el.textContent ?? "").trim();
@@ -66,6 +72,8 @@ function captureInPage(): { page: PageSnapshot; elements: ElementSnapshot[] } {
       const fw = Number(cs.fontWeight);
       if (Number.isFinite(fw)) weights.add(fw);
       colors.add(cs.color);
+      bumpColor(cs.color);
+      bumpColor(cs.backgroundColor);
       for (const v of [cs.marginTop, cs.paddingTop, cs.columnGap]) {
         const n = Number.parseFloat(v);
         if (Number.isFinite(n) && n > 0) spac.add(Math.round(n));
@@ -101,6 +109,7 @@ function captureInPage(): { page: PageSnapshot; elements: ElementSnapshot[] } {
       fontWeights: [...weights],
       textColors: [...colors],
       spacings: [...spac],
+      colorUsage: [...colorCount].map(([color, count]) => ({ color, count })),
     },
     elements,
   };

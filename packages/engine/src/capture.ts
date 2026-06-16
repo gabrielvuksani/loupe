@@ -27,6 +27,12 @@ export function capturePage(doc: Document): PageSnapshot {
   const fontWeights = new Set<number>();
   const textColors = new Set<string>();
   const spacings = new Set<number>();
+  const colorCount = new Map<string, number>();
+  const bump = (c: string): void => {
+    if (c && c !== "transparent" && !/rgba?\([^)]*,\s*0\s*\)/.test(c)) {
+      colorCount.set(c, (colorCount.get(c) ?? 0) + 1);
+    }
+  };
 
   for (const el of Array.from(doc.body?.querySelectorAll("*") ?? [])) {
     if (!el.textContent || !el.textContent.trim()) continue;
@@ -38,6 +44,8 @@ export function capturePage(doc: Document): PageSnapshot {
     const fw = Number(cs.fontWeight);
     if (Number.isFinite(fw)) fontWeights.add(fw);
     textColors.add(cs.color);
+    bump(cs.color);
+    bump(cs.backgroundColor);
     for (const v of [cs.marginTop, cs.paddingTop, cs.columnGap]) {
       const n = Number.parseFloat(v);
       if (Number.isFinite(n) && n > 0) spacings.add(Math.round(n));
@@ -50,6 +58,7 @@ export function capturePage(doc: Document): PageSnapshot {
     fontWeights: [...fontWeights],
     textColors: [...textColors],
     spacings: [...spacings],
+    colorUsage: [...colorCount].map(([color, count]) => ({ color, count })),
   };
   const href = doc.location?.href;
   if (href) snap.url = href;
