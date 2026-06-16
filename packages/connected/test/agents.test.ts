@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { analyzeElement, buildPacket } from "@goldeye/engine";
-import { composeDispatch } from "../src/agents";
+import { composeDispatch, composeTastePrompt } from "../src/agents";
 
 const packet = buildPacket(
   { selector: ".ghost", tag: "button", styles: { color: "rgb(174, 182, 194)", backgroundColor: "rgb(255, 255, 255)" } },
@@ -27,5 +27,14 @@ describe("composeDispatch: existing-session spawn fallback per agent", () => {
     const d = composeDispatch("OpenCode", packet, "/repo");
     expect(d.cmd).toBe("opencode");
     expect(d.args[0]).toBe("run");
+  });
+});
+
+describe("composeTastePrompt", () => {
+  it("asks for a 0 to 10 taste score and points back at the score tool", () => {
+    const p = composeTastePrompt(packet);
+    expect(p).toMatch(/0 to 10/);
+    expect(p).toMatch(/goldeye_score_taste/);
+    expect(p).toMatch(/\.ghost/);
   });
 });

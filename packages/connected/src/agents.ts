@@ -24,6 +24,16 @@ function buildPrompt(packet: ElementPacket): string {
   ].join("\n");
 }
 
+// The prompt an agent uses to score taste. The engine never judges taste; this
+// subjective read comes from the agent already in the loop.
+export function composeTastePrompt(packet: ElementPacket): string {
+  return [
+    packetToMarkdown(packet),
+    "",
+    "Rate the visual taste of this element from 0 to 10 (typography, spacing, hierarchy, restraint), independent of the deterministic findings above. Then call goldeye_score_taste with your integer score and one sentence of reasoning.",
+  ].join("\n");
+}
+
 // Compose the exact CLI invocation to apply a packet's fix in the project root.
 // The spawn fallback for the pull model: used when no agent session is live.
 export function composeDispatch(

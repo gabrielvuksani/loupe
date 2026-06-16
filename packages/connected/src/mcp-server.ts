@@ -30,6 +30,19 @@ export function createServer(store: SelectionStore = createSelectionStore()): Se
         inputSchema: { type: "object", properties: {} },
       },
       {
+        name: "goldeye_score_taste",
+        description:
+          "Record your subjective 0-10 taste read for the current selection (typography, spacing, hierarchy, restraint). goldeye stays deterministic; this is your judgment, surfaced as advisory.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            score: { type: "number", description: "0 to 10." },
+            notes: { type: "string", description: "One sentence of reasoning." },
+          },
+          required: ["score"],
+        },
+      },
+      {
         name: "goldeye_reverify",
         description:
           "Re-judge a URL and report the before/after score. Omit fixes for a deterministic self-heal proof; pass an empty fixes array to re-judge the live page after you edited the source.",
@@ -81,6 +94,12 @@ export function createServer(store: SelectionStore = createSelectionStore()): Se
     const name = req.params.name;
     const args = (req.params.arguments ?? {}) as Record<string, unknown>;
     try {
+      if (name === "goldeye_score_taste") {
+        const raw = Number(args["score"]);
+        const score = Math.max(0, Math.min(10, Number.isFinite(raw) ? raw : 0));
+        store.setTaste({ score, notes: String(args["notes"] ?? "") });
+        return { content: [{ type: "text", text: `Recorded taste ${score}/10.` }] };
+      }
       if (name === "goldeye_get_selection") {
         const packet = store.get();
         if (!packet) {
@@ -88,8 +107,12 @@ export function createServer(store: SelectionStore = createSelectionStore()): Se
             content: [{ type: "text", text: "No element is currently selected in the goldeye Lens." }],
           };
         }
+        const taste = store.getTaste();
+        const tasteLine = taste
+          ? `\n\nTaste: ${taste.score}/10 (agent)${taste.notes ? ` - ${taste.notes}` : ""}`
+          : "";
         const content: Array<Record<string, unknown>> = [
-          { type: "text", text: packetToMarkdown(packet) },
+          { type: "text", text: packetToMarkdown(packet) + tasteLine },
         ];
         const shot = packet.screenshot;
         if (typeof shot === "string" && shot.startsWith("data:image/")) {

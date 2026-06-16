@@ -56,6 +56,26 @@ describe("MCP server · selection pull", () => {
     expect(text).toMatch(/\.ghost/);
     await client.close();
   });
+
+  it("records an agent taste score and surfaces it in the selection", async () => {
+    const store = createSelectionStore();
+    const server = createServer(store);
+    const [clientT, serverT] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "test", version: "0" }, { capabilities: {} });
+    await Promise.all([server.connect(serverT), client.connect(clientT)]);
+
+    store.set(buildPacket(badButton, analyzeElement(badButton)));
+    await client.callTool({
+      name: "goldeye_score_taste",
+      arguments: { score: 7, notes: "clean but cramped" },
+    });
+
+    const res = await client.callTool({ name: "goldeye_get_selection", arguments: {} });
+    const text = (res.content as Array<{ text: string }>)[0]?.text ?? "";
+    expect(text).toMatch(/Taste: 7\/10/);
+    expect(text).toMatch(/clean but cramped/);
+    await client.close();
+  });
 });
 
 describe("WebSocket bridge", () => {
