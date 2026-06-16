@@ -76,4 +76,23 @@ describe("WebSocket bridge", () => {
     ws.close();
     await new Promise<void>((r) => wss.close(() => r()));
   });
+
+  it("rejects a dispatch missing the project root with a helpful status", async () => {
+    const wss = startBridge(0);
+    const port = (wss.address() as { port: number }).port;
+    const ws = new WebSocket(`ws://127.0.0.1:${port}`);
+
+    const result = await new Promise<{ phase: string; message?: string }>((resolve, reject) => {
+      ws.on("open", () =>
+        ws.send(JSON.stringify({ type: "dispatch", id: 2, agent: "Claude Code", packet: {} })),
+      );
+      ws.on("message", (d) => resolve(JSON.parse(String(d))));
+      ws.on("error", reject);
+    });
+
+    expect(result.phase).toBe("error");
+    expect(result.message).toMatch(/project root/i);
+    ws.close();
+    await new Promise<void>((r) => wss.close(() => r()));
+  });
 });

@@ -1,0 +1,31 @@
+import { describe, it, expect } from "vitest";
+import { analyzeElement, buildPacket } from "@goldeye/engine";
+import { composeDispatch } from "../src/agents";
+
+const packet = buildPacket(
+  { selector: ".ghost", tag: "button", styles: { color: "rgb(174, 182, 194)", backgroundColor: "rgb(255, 255, 255)" } },
+  analyzeElement({ selector: ".ghost", tag: "button", styles: { color: "rgb(174, 182, 194)", backgroundColor: "rgb(255, 255, 255)" } }),
+);
+
+describe("composeDispatch: existing-session spawn fallback per agent", () => {
+  it("composes a headless Claude Code apply in the project root, carrying the packet", () => {
+    const d = composeDispatch("Claude Code", packet, "/repo");
+    expect(d.cmd).toBe("claude");
+    expect(d.args).toContain("-p");
+    expect(d.cwd).toBe("/repo");
+    expect(d.args.join("\n")).toMatch(/contrast/i);
+  });
+
+  it("composes codex exec with a writable sandbox", () => {
+    const d = composeDispatch("Codex", packet, "/repo");
+    expect(d.cmd).toBe("codex");
+    expect(d.args.slice(0, 3)).toEqual(["exec", "--sandbox", "workspace-write"]);
+    expect(d.cwd).toBe("/repo");
+  });
+
+  it("composes an opencode run", () => {
+    const d = composeDispatch("OpenCode", packet, "/repo");
+    expect(d.cmd).toBe("opencode");
+    expect(d.args[0]).toBe("run");
+  });
+});

@@ -1,6 +1,7 @@
 import { WebSocketServer, type WebSocket } from "ws";
 import { analyzeElement, analyzePage, buildPacket, type ElementPacket } from "@goldeye/engine";
 import { createSelectionStore, type SelectionStore } from "./selection-store";
+import { runDispatch, type AgentName } from "./agents";
 
 // WebSocket bridge for the extension's Connected mode. Shares a selection store
 // with the MCP server so the agent can pull what the browser published.
@@ -11,7 +12,14 @@ export function startBridge(
   const wss = new WebSocketServer({ port });
   wss.on("connection", (ws: WebSocket) => {
     ws.on("message", (data) => {
-      let msg: { type?: string; id?: unknown; snapshot?: unknown; packet?: unknown };
+      let msg: {
+        type?: string;
+        id?: unknown;
+        snapshot?: unknown;
+        packet?: unknown;
+        agent?: AgentName;
+        cwd?: string;
+      };
       try {
         msg = JSON.parse(String(data));
       } catch {
@@ -36,6 +44,30 @@ export function startBridge(
         } else if (msg.type === "publish-selection") {
           store.set((msg.packet as ElementPacket | undefined) ?? null);
           ws.send(JSON.stringify({ type: "ack", id: msg.id }));
+        } else if (msg.type === "dispatch") {
+          const { agent, packet, cwd } = msg;
+          if (!agent || !packet || !cwd) {
+            ws.send(
+              JSON.stringify({
+                type: "dispatch-status",
+                id: msg.id,
+                phase: "error",
+                message: "dispatch needs agent, packet, and cwd (the project root)",
+              }),
+            );
+          } else {
+            ws.send(JSON.stringify({ type: "dispatch-status", id: msg.id, phase: "dispatching", agent }));
+            void runDispatch(agent, packet as ElementPacket, cwd).then((result) => {
+              ws.send(
+                JSON.stringify({
+                  type: "dispatch-status",
+                  id: msg.id,
+                  phase: result.ok ? "applied" : "error",
+                  result,
+                }),
+              );
+            });
+          }
         } else {
           ws.send(JSON.stringify({ type: "error", id: msg.id, message: `unknown type: ${msg.type}` }));
         }
