@@ -3,6 +3,8 @@ import type { Finding, PageSnapshot } from "./types";
 const MIN_SCALE_RATIO = 1.25; // Refactoring UI: no two type-scale steps closer than 25%.
 const MAX_FONT_FAMILIES = 2;
 const MAX_FONT_WEIGHTS = 3;
+const SPACING_GRID = 4; // Refactoring UI: spacing lives on a consistent scale.
+const MIN_SPACING_SAMPLES = 6;
 
 // Page-level taste rules: bounded variety and a sane type scale.
 export function analyzePage(snapshot: PageSnapshot): Finding[] {
@@ -42,6 +44,21 @@ export function analyzePage(snapshot: PageSnapshot): Finding[] {
         severity: "low",
         selector: ":root",
         message: `Font sizes ${lo}px and ${hi}px are ${Math.round((hi / lo - 1) * 100)}% apart, under the 25% minimum. Collapse to one.`,
+      });
+    }
+  }
+
+  // spacing-scale: arbitrary spacing values signal no underlying grid.
+  const spacings = distinct(snapshot.spacings);
+  if (spacings.length >= MIN_SPACING_SAMPLES) {
+    const offGrid = spacings.filter((s) => s % SPACING_GRID !== 0).length;
+    if (offGrid / spacings.length > 0.5) {
+      findings.push({
+        ruleId: "spacing-scale",
+        category: "taste",
+        severity: "low",
+        selector: ":root",
+        message: `${offGrid} of ${spacings.length} spacing values are off a ${SPACING_GRID}px grid. Snap spacing to a consistent scale.`,
       });
     }
   }

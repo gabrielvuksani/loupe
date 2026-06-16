@@ -35,6 +35,18 @@ describe("analyzePage: typography and palette taste rules", () => {
     expect(f?.category).toBe("taste");
   });
 
+  it("flags an inconsistent spacing scale when most spacings are off a 4px grid", () => {
+    const findings = analyzePage({ ...clean, spacings: [3, 7, 11, 13, 17, 23, 29] });
+    const f = findings.find((x) => x.ruleId === "spacing-scale");
+    expect(f).toBeDefined();
+    expect(f?.category).toBe("taste");
+  });
+
+  it("does not flag spacing when values sit on a consistent grid", () => {
+    const findings = analyzePage({ ...clean, spacings: [4, 8, 12, 16, 24, 32, 48] });
+    expect(findings.find((x) => x.ruleId === "spacing-scale")).toBeUndefined();
+  });
+
   it("returns no findings for a page with a clean, consistent system", () => {
     expect(analyzePage(clean)).toEqual([]);
   });
