@@ -1,13 +1,14 @@
 name: Publish loupe-cli
 
-# Publishes packages/connected to npm as loupe-cli when a version tag is pushed
-# (e.g. v0.1.1), or on manual dispatch. Bump the version in
-# packages/connected/package.json first, then tag and push:
+# Publishes packages/connected to npm as loupe-cli via OIDC trusted publishing
+# (no token) when a version tag is pushed (e.g. v0.1.1) or on manual dispatch.
+# Bump packages/connected/package.json, then tag and push:
 #   git tag v0.1.1 && git push origin v0.1.1
 #
-# Requires an NPM_TOKEN repo secret: an npm Automation or Granular access token
-# with publish rights (these bypass 2FA, which interactive passkeys cannot do in
-# CI). Add it under Settings -> Secrets and variables -> Actions -> New secret.
+# Trusted publishing is configured on npmjs.com for loupe-cli against this repo
+# and the workflow file `publish.yml`. Requirements: id-token: write on the job,
+# npm CLI >= 11.5.1, and Node >= 22.14. pnpm 10.x delegates publish to npm, which
+# performs the OIDC exchange; pnpm 11 is avoided (its native OIDC path regressed).
 on:
   push:
     tags:
@@ -17,6 +18,9 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -38,8 +42,7 @@ jobs:
         id: ver
         run: echo "version=$(node -p "require('./packages/connected/package.json').version")" >> "$GITHUB_OUTPUT"
 
-      # Idempotent: re-tagging or re-running must not fail on an already-published
-      # version. Only publish when this version is not yet on the registry.
+      # Idempotent: re-running must not fail on an already-published version.
       - name: Check the registry
         id: published
         env:
@@ -52,9 +55,13 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # prepack rebuilds the self-contained bundle, then pnpm publishes it.
+      # OIDC trusted publishing needs npm CLI >= 11.5.1; pnpm 10 delegates to it.
+      - name: Update npm for OIDC
+        if: steps.published.outputs.exists == 'false'
+        run: npm install -g npm@latest
+
+      # prepack rebuilds the bundle + extension; pnpm rewrites the workspace dep
+      # and delegates to npm, which authenticates via OIDC (no token needed).
       - name: Publish loupe-cli
         if: steps.published.outputs.exists == 'false'
         run: pnpm --filter loupe-cli publish --no-git-checks --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
