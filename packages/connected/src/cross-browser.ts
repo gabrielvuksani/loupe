@@ -1,6 +1,6 @@
 import bcd from "@mdn/browser-compat-data" with { type: "json" };
 import browserslist from "browserslist";
-import type { Finding } from "@goldeye/engine";
+import type { Finding } from "@loupe/engine";
 
 // CSS property compat lives under bcd.css.properties[name].__compat.support.
 // Typed loosely: the JSON is enormous and we only read a narrow slice.

@@ -4,21 +4,21 @@ import { readFile, writeFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, normalize } from "node:path";
-import { buildPacket, type ElementSnapshot, type Finding } from "@goldeye/engine";
+import { buildPacket, type ElementSnapshot, type Finding } from "@loupe/engine";
 import { renderAndAnalyze } from "../src/playwright-adapter";
 import { runDispatch, type AgentName } from "../src/agents";
 
 // Gated, real-agent end-to-end test. Skipped by default; it spawns a coding
 // agent that edits files and spends tokens. Run it manually:
 //
-//   GOLDEYE_LIVE_DISPATCH=1 GOLDEYE_AGENT=Codex pnpm test:integration dispatch
+//   LOUPE_LIVE_DISPATCH=1 LOUPE_AGENT=Codex pnpm test:integration dispatch
 //
 // The fixture has a real contrast problem in styles.css (#aeb6c2 on white).
 // We render it, hand the engine-computed contrast fix to the agent pointed at
 // the fixture cwd, then re-render and assert the contrast finding cleared.
 
-const LIVE = process.env.GOLDEYE_LIVE_DISPATCH === "1";
-const AGENT = (process.env.GOLDEYE_AGENT as AgentName) || "Codex";
+const LIVE = process.env.LOUPE_LIVE_DISPATCH === "1";
+const AGENT = (process.env.LOUPE_AGENT as AgentName) || "Codex";
 
 const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "dispatch-app");
 const cssPath = join(fixtureDir, "styles.css");

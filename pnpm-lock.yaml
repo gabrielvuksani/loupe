@@ -23,7 +23,7 @@ importers:
       '@axe-core/playwright':
         specifier: ^4.10.1
         version: 4.11.3(playwright-core@1.61.0)
-      '@goldeye/engine':
+      '@loupe/engine':
         specifier: workspace:*
         version: link:../engine
       '@mdn/browser-compat-data':
@@ -85,7 +85,7 @@ importers:
 
   packages/extension:
     dependencies:
-      '@goldeye/engine':
+      '@loupe/engine':
         specifier: workspace:*
         version: link:../engine
       axe-core:

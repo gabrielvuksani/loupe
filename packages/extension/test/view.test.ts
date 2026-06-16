@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { analyzeElement, buildPacket } from "@goldeye/engine";
+import { analyzeElement, buildPacket } from "@loupe/engine";
 import { popoverHtml } from "../entrypoints/lib/view";
 
 const snap = {

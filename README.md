@@ -1,4 +1,4 @@
-# goldeye
+# loupe
 
 A self-verifying browser. Point it at any page and it reports, deterministically and with no AI, what is wrong with the design and accessibility, and the exact fix. AI is used only to apply fixes to your code and for the subjective part of taste.
 
@@ -36,7 +36,7 @@ Scale strategy: infer the page's own system from used values, grade it against u
 ## packages/extension (the Lens)
 
 ```
-pnpm --filter @goldeye/extension build    # output: packages/extension/.output/chrome-mv3
+pnpm --filter @loupe/extension build    # output: packages/extension/.output/chrome-mv3
 ```
 
 Load it: open `chrome://extensions`, enable Developer mode, Load unpacked, select `.output/chrome-mv3`. Click the toolbar icon to open the side panel.
@@ -53,46 +53,46 @@ exactly what the Lens selected. One daemon serves every agent, so there is no pe
 process and no port contention.
 
 ```
-goldeye serve     # WS bridge (ws://127.0.0.1:8791) + MCP over HTTP (http://127.0.0.1:8792/mcp)
+loupe serve     # WS bridge (ws://127.0.0.1:8791) + MCP over HTTP (http://127.0.0.1:8792/mcp)
 ```
 
-From the repo: `pnpm --filter @goldeye/connected serve`. As a standalone CLI:
-`pnpm --filter @goldeye/connected build`, then `node packages/connected/dist/bin.js serve`
-(the bundle is self-contained; publish the package to get `npx goldeye serve`).
+From the repo: `pnpm --filter @loupe/connected serve`. As a standalone CLI:
+`pnpm --filter @loupe/connected build`, then `node packages/connected/dist/bin.js serve`
+(the bundle is self-contained; publish the package to get `npx loupe serve`).
 
 Tools the agent calls from its own session:
 
-- `goldeye_get_selection`: pull the element the Lens has selected (findings, computed fixes, a11y node, source hint, and a cropped screenshot for vision).
-- `goldeye_reverify`: re-render a URL and report the before and after score. This is the loop.
-- `goldeye_score_taste`: record a subjective 0 to 10 taste read. The engine stays deterministic; this is the agent's judgment, surfaced as advisory.
-- `goldeye_analyze_url`, `goldeye_analyze_element`: real render and engine packet.
+- `loupe_get_selection`: pull the element the Lens has selected (findings, computed fixes, a11y node, source hint, and a cropped screenshot for vision).
+- `loupe_reverify`: re-render a URL and report the before and after score. This is the loop.
+- `loupe_score_taste`: record a subjective 0 to 10 taste read. The engine stays deterministic; this is the agent's judgment, surfaced as advisory.
+- `loupe_analyze_url`, `loupe_analyze_element`: real render and engine packet.
 
 Register the running daemon once in your agent:
 
 ```
 # Claude Code
-claude mcp add --transport http goldeye http://127.0.0.1:8792/mcp
+claude mcp add --transport http loupe http://127.0.0.1:8792/mcp
 
 # Codex (streamable HTTP; SSE is not supported)
-codex mcp add goldeye --url http://127.0.0.1:8792/mcp
+codex mcp add loupe --url http://127.0.0.1:8792/mcp
 ```
 
 ```jsonc
 // OpenCode (opencode.json, project root or ~/.config/opencode/)
 {
   "mcp": {
-    "goldeye": { "type": "remote", "url": "http://127.0.0.1:8792/mcp", "enabled": true }
+    "loupe": { "type": "remote", "url": "http://127.0.0.1:8792/mcp", "enabled": true }
   }
 }
 ```
 
 The loop is pull-primary: select an element in the Lens, your running agent pulls it, edits
-its own repo, and calls `goldeye_reverify` to show the score climb. No LLM credentials leave
+its own repo, and calls `loupe_reverify` to show the score climb. No LLM credentials leave
 your machine. For sessions where no agent is attached, a bare stdio server
-(`pnpm --filter @goldeye/connected mcp`) and a spawn fallback (`claude -p`, `codex exec`)
+(`pnpm --filter @loupe/connected mcp`) and a spawn fallback (`claude -p`, `codex exec`)
 remain. The WS bridge binds loopback and accepts only `chrome-extension://` origins; the HTTP
 endpoint rejects any request that carries a browser `Origin` header. For extra hardening,
-`goldeye serve --token` prints a one-time token the bridge then requires; paste it into the
+`loupe serve --token` prints a one-time token the bridge then requires; paste it into the
 Lens panel's token field.
 
 ## Verification
@@ -104,8 +104,8 @@ Lens panel's token field.
 | Real render, axe, Lighthouse | integration test renders a fixture in real Chromium and returns findings plus a numeric Lighthouse score |
 | Closed loop | integration test applies a computed contrast fix to a real render, re-judges, and the contrast finding is gone while the score rose |
 | Extension end to end | built MV3 in headed Chromium: scans a page, renders the on-page popover on click, and merges axe-core findings in Standalone |
-| Pull flow end to end | gated integration (`GOLDEYE_LIVE_PULL`): the built extension in headed Chromium publishes a Connected-mode selection over the WS bridge, and a real MCP-over-HTTP client pulls it via `goldeye_get_selection` |
+| Pull flow end to end | gated integration (`LOUPE_LIVE_PULL`): the built extension in headed Chromium publishes a Connected-mode selection over the WS bridge, and a real MCP-over-HTTP client pulls it via `loupe_get_selection` |
 
-Automated now: the deterministic loop, the on-page popover, axe in Standalone, and the full pull path (a real browser publishes a Connected-mode selection and a real MCP-over-HTTP client pulls it) all have passing tests. Still manual: a live LLM editing source then re-verifying. The dispatch composition per agent is unit-tested; the real spawn is opt-in (it edits files and spends tokens), gated behind `GOLDEYE_LIVE_DISPATCH`.
+Automated now: the deterministic loop, the on-page popover, axe in Standalone, and the full pull path (a real browser publishes a Connected-mode selection and a real MCP-over-HTTP client pulls it) all have passing tests. Still manual: a live LLM editing source then re-verifying. The dispatch composition per agent is unit-tested; the real spawn is opt-in (it edits files and spends tokens), gated behind `LOUPE_LIVE_DISPATCH`.
 
 Cross-platform: Node, Playwright, and WebSocket only, with no OS-specific paths. Verified on macOS; not yet run on Windows.

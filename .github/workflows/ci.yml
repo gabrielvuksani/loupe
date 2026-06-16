@@ -33,13 +33,13 @@ jobs:
         run: pnpm test
 
       - name: Typecheck engine
-        run: pnpm --filter @goldeye/engine exec tsc --noEmit
+        run: pnpm --filter @loupe/engine exec tsc --noEmit
 
       - name: Typecheck connected
-        run: pnpm --filter @goldeye/connected exec tsc --noEmit
+        run: pnpm --filter @loupe/connected exec tsc --noEmit
 
       - name: Typecheck extension
-        run: pnpm --filter @goldeye/extension exec tsc --noEmit
+        run: pnpm --filter @loupe/extension exec tsc --noEmit
 
   # MV3 extension service workers require a headed Chromium instance, so this
   # job is best-effort: it runs under a virtual display via xvfb and is marked
@@ -63,11 +63,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Chromium for Playwright
-        run: pnpm --filter @goldeye/connected exec playwright install --with-deps chromium
+        run: pnpm --filter @loupe/connected exec playwright install --with-deps chromium
 
       # The extension e2e tests load the built MV3 bundle from .output/chrome-mv3.
       - name: Build extension
-        run: pnpm --filter @goldeye/extension build
+        run: pnpm --filter @loupe/extension build
 
       - name: Integration tests
         run: xvfb-run -a pnpm test:integration

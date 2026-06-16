@@ -2,11 +2,11 @@ import { describe, it, expect } from "vitest";
 import { renderAndAnalyze } from "../src/playwright-adapter";
 
 // Render real production pages through the deterministic engine to read the
-// false-positive rate by eye. Gated (GOLDEYE_LIVE_REALWORLD=1) because it needs
+// false-positive rate by eye. Gated (LOUPE_LIVE_REALWORLD=1) because it needs
 // the network and live sites change. Assertions stay structural; the console
 // output is the signal: a polished site should yield few taste findings, a
 // trivial page almost none.
-const live = Boolean(process.env["GOLDEYE_LIVE_REALWORLD"]);
+const live = Boolean(process.env["LOUPE_LIVE_REALWORLD"]);
 
 const urls = ["https://example.com/", "https://news.ycombinator.com/", "https://stripe.com/"];
 
@@ -21,7 +21,7 @@ describe.runIf(live)("real-world · deterministic engine on production pages", (
         .map(([k, v]) => `${k}:${v}`)
         .join(", ");
       process.stdout.write(
-        `\nGOLDEYE ${url}\n  score ${r.score.overall} (taste ${r.score.byCategory.taste}, a11y ${r.score.byCategory.a11y})` +
+        `\nLOUPE ${url}\n  score ${r.score.overall} (taste ${r.score.byCategory.taste}, a11y ${r.score.byCategory.a11y})` +
           `\n  elements ${r.elementsAnalyzed} · engine+xbrowser findings ${r.findings.length} · axe violations ${r.axe.violations}` +
           `\n  by rule: ${summary || "(none)"}\n`,
       );

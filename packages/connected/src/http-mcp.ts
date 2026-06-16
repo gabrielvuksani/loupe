@@ -42,7 +42,7 @@ export function startHttpMcp(
     const path = (req.url ?? "/").split("?")[0];
     if (path === "/health") {
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ ok: true, service: "goldeye", mcp: "/mcp" }));
+      res.end(JSON.stringify({ ok: true, service: "loupe", mcp: "/mcp" }));
       return;
     }
     if (path !== "/mcp") {

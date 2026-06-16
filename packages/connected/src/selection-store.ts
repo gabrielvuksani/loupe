@@ -1,4 +1,4 @@
-import type { ElementPacket } from "@goldeye/engine";
+import type { ElementPacket } from "@loupe/engine";
 
 export interface TasteScore {
   score: number;

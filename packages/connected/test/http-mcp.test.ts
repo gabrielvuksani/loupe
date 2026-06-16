@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import WebSocket from "ws";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { analyzeElement, buildPacket } from "@goldeye/engine";
+import { analyzeElement, buildPacket } from "@loupe/engine";
 import { startHttpMcp } from "../src/http-mcp";
 import { startBridge } from "../src/ws-bridge";
 import { createSelectionStore } from "../src/selection-store";
@@ -45,10 +45,10 @@ describe("HTTP MCP daemon", () => {
     const client = await connectClient(port);
 
     const tools = await client.listTools();
-    expect(tools.tools.map((t) => t.name)).toContain("goldeye_get_selection");
+    expect(tools.tools.map((t) => t.name)).toContain("loupe_get_selection");
 
     const res = await client.callTool({
-      name: "goldeye_analyze_element",
+      name: "loupe_analyze_element",
       arguments: { snapshot: badButton },
     });
     const text = (res.content as Array<{ text: string }>)[0]?.text ?? "";
@@ -70,7 +70,7 @@ describe("HTTP MCP daemon", () => {
 
     const client = await connectClient(port);
 
-    const empty = await client.callTool({ name: "goldeye_get_selection", arguments: {} });
+    const empty = await client.callTool({ name: "loupe_get_selection", arguments: {} });
     expect((empty.content as Array<{ text: string }>)[0]?.text ?? "").toMatch(/no element/i);
 
     // the Lens publishes the current selection over the WS bridge
@@ -83,7 +83,7 @@ describe("HTTP MCP daemon", () => {
     });
 
     // the agent pulls it from its own HTTP MCP session
-    const res = await client.callTool({ name: "goldeye_get_selection", arguments: {} });
+    const res = await client.callTool({ name: "loupe_get_selection", arguments: {} });
     const text = (res.content as Array<{ text: string }>)[0]?.text ?? "";
     expect(text).toMatch(/contrast/i);
     expect(text).toMatch(/\.ghost/);
@@ -116,7 +116,7 @@ describe("HTTP MCP daemon", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { ok?: boolean; service?: string };
     expect(body.ok).toBe(true);
-    expect(body.service).toBe("goldeye");
+    expect(body.service).toBe("loupe");
 
     await new Promise<void>((r) => httpServer.close(() => r()));
   });

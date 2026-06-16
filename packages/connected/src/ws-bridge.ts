@@ -1,5 +1,5 @@
 import { WebSocketServer, type WebSocket } from "ws";
-import { analyzeElement, analyzePage, buildPacket, scoreFindings, type ElementPacket } from "@goldeye/engine";
+import { analyzeElement, analyzePage, buildPacket, scoreFindings, type ElementPacket } from "@loupe/engine";
 import { createSelectionStore, type SelectionStore } from "./selection-store";
 import { runDispatch, type AgentName } from "./agents";
 

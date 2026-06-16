@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { packetToMarkdown, type ElementPacket } from "@goldeye/engine";
+import { packetToMarkdown, type ElementPacket } from "@loupe/engine";
 
 export type AgentName = "Claude Code" | "Codex" | "OpenCode";
 
@@ -30,7 +30,7 @@ export function composeTastePrompt(packet: ElementPacket): string {
   return [
     packetToMarkdown(packet),
     "",
-    "Rate the visual taste of this element from 0 to 10 (typography, spacing, hierarchy, restraint), independent of the deterministic findings above. Then call goldeye_score_taste with your integer score and one sentence of reasoning.",
+    "Rate the visual taste of this element from 0 to 10 (typography, spacing, hierarchy, restraint), independent of the deterministic findings above. Then call loupe_score_taste with your integer score and one sentence of reasoning.",
   ].join("\n");
 }
 

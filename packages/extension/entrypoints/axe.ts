@@ -5,5 +5,5 @@ import axe from "axe-core";
 // per-page content bundle and only loads when a Standalone audit runs. The
 // content script reads it off this shared isolated-world global after injection.
 export default defineUnlistedScript(() => {
-  (window as unknown as { __goldeyeAxe?: typeof axe }).__goldeyeAxe = axe;
+  (window as unknown as { __loupeAxe?: typeof axe }).__loupeAxe = axe;
 });

@@ -110,7 +110,7 @@ describe("extension · content script runs the engine in-page (real browser, loa
     await page.click(".ghost");
     await page.waitForFunction(
       () => {
-        const host = document.getElementById("goldeye-lens-popover");
+        const host = document.getElementById("loupe-lens-popover");
         return Boolean(
           host && host.style.display === "block" && (host.shadowRoot?.textContent ?? "").includes("/100"),
         );
@@ -119,7 +119,7 @@ describe("extension · content script runs the engine in-page (real browser, loa
     );
 
     const pop = await page.evaluate(
-      () => document.getElementById("goldeye-lens-popover")?.shadowRoot?.textContent ?? "",
+      () => document.getElementById("loupe-lens-popover")?.shadowRoot?.textContent ?? "",
     );
     expect(pop.toLowerCase()).toContain("contrast");
   }, 60000);

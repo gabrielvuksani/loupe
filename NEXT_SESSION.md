@@ -1,4 +1,4 @@
-# goldeye next session: close every gap, autonomously
+# loupe next session: close every gap, autonomously
 
 > Status 2026-06-16: effectively complete. The loop, pull-MCP dispatch, popover,
 > expanded packet, axe in Standalone, OKLCH + APCA, the agent taste seam, the taste
@@ -9,7 +9,7 @@
 > frequency capture). Only hierarchy levers is left as a standalone rule, and its intent
 > is already covered by type-scale, font-weights, and color-count. See HANDOFF.md.
 >
-> Update 2026-06-16 (daemon session): productization (a standalone `goldeye serve` esbuild
+> Update 2026-06-16 (daemon session): productization (a standalone `loupe serve` esbuild
 > bundle, MCP registration docs for all three agents, CI), the full pull flow proven with a
 > real browser plus a real MCP-over-HTTP client, SSRF + an optional WS token, and a real-site
 > validation that drove a target-size false-positive fix are all done. Ready for the PR to main.
@@ -37,7 +37,7 @@ Each item lists goal, files, approach, done-when.
 Goal: render, judge, fix, re-judge actually works.
 - Files: packages/connected/src/mcp-server.ts, packages/connected/src/playwright-adapter.ts (or a new reverify.ts).
 - Add a connected function `reverifyAfterFix(url, fixes)` that applies the computed CSS fixes to the rendered page (inline style or addStyleTag), re-runs the engine, and returns before and after scores.
-- Add MCP tools `goldeye_apply_fix` and `goldeye_reverify`.
+- Add MCP tools `loupe_apply_fix` and `loupe_reverify`.
 - Done when: an integration test applies a computed contrast fix to the fixture, re-verifies, the contrast finding is gone, and the score rose.
 
 ### 2. Live element to agent dispatch (Connected). The thing the user cares about most.
@@ -98,7 +98,7 @@ Goal: standalone runs real a11y in-page, not only the engine rules.
 
 ## Definition of done for the pass
 In a loaded browser: click an element, see the verdict popover in place, dispatch
-to a CLI agent, the agent applies, goldeye re-verifies, and the score climbs.
+to a CLI agent, the agent applies, loupe re-verifies, and the score climbs.
 Standalone runs axe plus the full deterministic taste set. Every committed dep is
 used. Tests cover the loop and the inspect flow. The final report leads with what
 still is not done.

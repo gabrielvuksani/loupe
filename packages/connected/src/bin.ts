@@ -14,18 +14,18 @@ const token = process.argv.includes("--token") ? randomUUID() : undefined;
 // All logs go to stderr: in stdio MCP mode stdout is the protocol channel.
 function launchBridge(): void {
   const wss = startBridge(8791, store, token);
-  wss.on("error", (e: unknown) => console.error(`goldeye · bridge error: ${String(e)}`));
+  wss.on("error", (e: unknown) => console.error(`loupe · bridge error: ${String(e)}`));
   wss.on("listening", () => {
-    console.error("goldeye · WebSocket bridge on ws://127.0.0.1:8791");
-    if (token) console.error(`goldeye · bridge token (paste into the Lens panel): ${token}`);
+    console.error("loupe · WebSocket bridge on ws://127.0.0.1:8791");
+    if (token) console.error(`loupe · bridge token (paste into the Lens panel): ${token}`);
   });
 }
 
 function launchHttpMcp(): void {
   const server = startHttpMcp(DEFAULT_HTTP_PORT, store);
-  server.on("error", (e: unknown) => console.error(`goldeye · http mcp error: ${String(e)}`));
+  server.on("error", (e: unknown) => console.error(`loupe · http mcp error: ${String(e)}`));
   server.on("listening", () =>
-    console.error(`goldeye · MCP over HTTP on http://127.0.0.1:${DEFAULT_HTTP_PORT}/mcp`),
+    console.error(`loupe · MCP over HTTP on http://127.0.0.1:${DEFAULT_HTTP_PORT}/mcp`),
   );
 }
 

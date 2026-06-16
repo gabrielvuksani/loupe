@@ -1,4 +1,4 @@
-import type { Finding, Severity } from "@goldeye/engine";
+import type { Finding, Severity } from "@loupe/engine";
 
 // The subset of an axe-core violation we map. Keeps the mapper pure and testable
 // without pulling in the axe runtime.
@@ -16,7 +16,7 @@ const SEVERITY: Record<string, Severity> = {
   minor: "low",
 };
 
-// Map axe-core violations into goldeye findings so Standalone merges real a11y
+// Map axe-core violations into loupe findings so Standalone merges real a11y
 // results with the deterministic engine.
 export function axeViolationsToFindings(violations: readonly AxeViolation[]): Finding[] {
   return violations.map((v) => ({

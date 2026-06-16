@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import WebSocket from "ws";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { analyzeElement, buildPacket } from "@goldeye/engine";
+import { analyzeElement, buildPacket } from "@loupe/engine";
 import { createServer } from "../src/mcp-server";
 import { startBridge } from "../src/ws-bridge";
 import { createSelectionStore } from "../src/selection-store";
@@ -29,10 +29,10 @@ describe("MCP server", () => {
     await Promise.all([server.connect(serverT), client.connect(clientT)]);
 
     const tools = await client.listTools();
-    expect(tools.tools.map((t) => t.name)).toContain("goldeye_analyze_element");
+    expect(tools.tools.map((t) => t.name)).toContain("loupe_analyze_element");
 
     const res = await client.callTool({
-      name: "goldeye_analyze_element",
+      name: "loupe_analyze_element",
       arguments: { snapshot: badButton },
     });
     const text = (res.content as Array<{ text: string }>)[0]?.text ?? "";
@@ -42,7 +42,7 @@ describe("MCP server", () => {
 });
 
 describe("MCP server · selection pull", () => {
-  it("returns the element the Lens published, via goldeye_get_selection", async () => {
+  it("returns the element the Lens published, via loupe_get_selection", async () => {
     const store = createSelectionStore();
     const server = createServer(store);
     const [clientT, serverT] = InMemoryTransport.createLinkedPair();
@@ -50,15 +50,15 @@ describe("MCP server · selection pull", () => {
     await Promise.all([server.connect(serverT), client.connect(clientT)]);
 
     const tools = await client.listTools();
-    expect(tools.tools.map((t) => t.name)).toContain("goldeye_get_selection");
+    expect(tools.tools.map((t) => t.name)).toContain("loupe_get_selection");
 
-    const empty = await client.callTool({ name: "goldeye_get_selection", arguments: {} });
+    const empty = await client.callTool({ name: "loupe_get_selection", arguments: {} });
     expect((empty.content as Array<{ text: string }>)[0]?.text ?? "").toMatch(/no element/i);
 
     // the bridge writes the current selection into the shared store
     store.set(buildPacket(badButton, analyzeElement(badButton)));
 
-    const res = await client.callTool({ name: "goldeye_get_selection", arguments: {} });
+    const res = await client.callTool({ name: "loupe_get_selection", arguments: {} });
     const text = (res.content as Array<{ text: string }>)[0]?.text ?? "";
     expect(text).toMatch(/contrast/i);
     expect(text).toMatch(/\.ghost/);
@@ -74,11 +74,11 @@ describe("MCP server · selection pull", () => {
 
     store.set(buildPacket(badButton, analyzeElement(badButton)));
     await client.callTool({
-      name: "goldeye_score_taste",
+      name: "loupe_score_taste",
       arguments: { score: 7, notes: "clean but cramped" },
     });
 
-    const res = await client.callTool({ name: "goldeye_get_selection", arguments: {} });
+    const res = await client.callTool({ name: "loupe_get_selection", arguments: {} });
     const text = (res.content as Array<{ text: string }>)[0]?.text ?? "";
     expect(text).toMatch(/Taste: 7\/10/);
     expect(text).toMatch(/clean but cramped/);
@@ -103,7 +103,7 @@ describe("MCP server · selection pull", () => {
       ws.on("error", reject);
     });
 
-    const res = await client.callTool({ name: "goldeye_get_selection", arguments: {} });
+    const res = await client.callTool({ name: "loupe_get_selection", arguments: {} });
     const text = (res.content as Array<{ text: string }>)[0]?.text ?? "";
     expect(text).toMatch(/contrast/i);
     expect(text).toMatch(/\.ghost/);

@@ -9,7 +9,7 @@ import {
   type ElementPacket,
   type ElementSnapshot,
   type Finding,
-} from "@goldeye/engine";
+} from "@loupe/engine";
 import { popoverHtml } from "./lib/view";
 import { cropRect } from "./lib/crop";
 import { axeViolationsToFindings, type AxeViolation } from "./lib/axe-findings";
@@ -53,42 +53,42 @@ export default defineContentScript({
 
     // ---------- popover (open shadow root, isolated from page CSS) ----------
     const POP_CSS = `
-      .ge-pop { font-family: ui-sans-serif, system-ui, sans-serif; width: 300px; color: #f3f5f8;
+      .lp-pop { font-family: ui-sans-serif, system-ui, sans-serif; width: 300px; color: #f3f5f8;
         background: rgba(20,23,31,.94); backdrop-filter: blur(14px); border: 1px solid rgba(232,181,74,.3);
         border-radius: 14px; padding: 12px 13px; box-shadow: 0 18px 50px rgba(0,0,0,.5); font-size: 13px; }
-      .ge-head { display: flex; align-items: center; gap: 8px; }
-      .ge-tag { font-weight: 700; color: #f6cf6e; }
-      .ge-sel { font-family: ui-monospace, monospace; font-size: 10px; color: #e8b54a;
+      .lp-head { display: flex; align-items: center; gap: 8px; }
+      .lp-tag { font-weight: 700; color: #f6cf6e; }
+      .lp-sel { font-family: ui-monospace, monospace; font-size: 10px; color: #e8b54a;
         background: rgba(232,181,74,.12); padding: 2px 6px; border-radius: 5px; flex: 1;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .ge-score { font-weight: 700; }
-      .ge-climb { color: #5fd0a8; }
-      .ge-shot { display: block; width: 100%; max-height: 150px; object-fit: contain;
+      .lp-score { font-weight: 700; }
+      .lp-climb { color: #5fd0a8; }
+      .lp-shot { display: block; width: 100%; max-height: 150px; object-fit: contain;
         margin: 9px 0 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.25); }
-      .ge-text { color: #aab2c0; font-size: 11.5px; margin: 7px 0; }
-      .ge-finding { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.1);
+      .lp-text { color: #aab2c0; font-size: 11.5px; margin: 7px 0; }
+      .lp-finding { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.1);
         border-radius: 10px; padding: 9px 10px; margin: 8px 0; }
-      .ge-finding b { font-size: 12px; }
-      .ge-finding p { margin: 4px 0; color: #aab2c0; font-size: 11px; line-height: 1.45; }
-      .ge-sev { display: inline-block; width: 7px; height: 7px; border-radius: 2px; margin-right: 6px; }
-      .ge-high { background: #ff6b6b; } .ge-medium { background: #ffb454; } .ge-low { background: #6c7689; }
-      .ge-fix { font-family: ui-monospace, monospace; font-size: 10.5px; color: #5fd0a8; }
-      .ge-empty { color: #6c7689; font-size: 12px; padding: 8px 2px; }
-      .ge-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
-      .ge-act { font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; padding: 7px 11px;
+      .lp-finding b { font-size: 12px; }
+      .lp-finding p { margin: 4px 0; color: #aab2c0; font-size: 11px; line-height: 1.45; }
+      .lp-sev { display: inline-block; width: 7px; height: 7px; border-radius: 2px; margin-right: 6px; }
+      .lp-high { background: #ff6b6b; } .lp-medium { background: #ffb454; } .lp-low { background: #6c7689; }
+      .lp-fix { font-family: ui-monospace, monospace; font-size: 10.5px; color: #5fd0a8; }
+      .lp-empty { color: #6c7689; font-size: 12px; padding: 8px 2px; }
+      .lp-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+      .lp-act { font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; padding: 7px 11px;
         border-radius: 8px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.05); color: #aab2c0; }
-      .ge-gold { background: linear-gradient(180deg, rgba(232,181,74,.95), #c8902f); color: #1a1407; border: 0; flex: 1; }`;
+      .lp-gold { background: linear-gradient(180deg, rgba(232,181,74,.95), #c8902f); color: #1a1407; border: 0; flex: 1; }`;
 
     const ensurePopover = (): void => {
       if (popHost) return;
       popHost = document.createElement("div");
-      popHost.id = "goldeye-lens-popover";
+      popHost.id = "loupe-lens-popover";
       popHost.style.cssText = "position:fixed;z-index:2147483647;display:none;";
       const root = popHost.attachShadow({ mode: "open" });
       const style = document.createElement("style");
       style.textContent = POP_CSS;
       popBody = document.createElement("div");
-      popBody.className = "ge-pop";
+      popBody.className = "lp-pop";
       root.append(style, popBody);
       document.documentElement.appendChild(popHost);
     };
@@ -182,7 +182,7 @@ export default defineContentScript({
     // ---------- axe in Standalone (lazy: injected on first use) ----------
     type AxeRuntime = { run: (ctx: never, opts: object) => Promise<{ violations: unknown[] }> };
     const axeGlobal = (): AxeRuntime | undefined =>
-      (window as unknown as { __goldeyeAxe?: AxeRuntime }).__goldeyeAxe;
+      (window as unknown as { __loupeAxe?: AxeRuntime }).__loupeAxe;
     let axeInjecting: Promise<boolean> | null = null;
     const ensureAxe = (): Promise<boolean> => {
       if (axeGlobal()) return Promise.resolve(true);

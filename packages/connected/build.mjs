@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 // node_modules at install time. Subpath imports need the /* form too.
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url)));
 const external = Object.keys(pkg.dependencies)
-  .filter((d) => d !== "@goldeye/engine")
+  .filter((d) => d !== "@loupe/engine")
   .flatMap((d) => [d, `${d}/*`]);
 
 await build({

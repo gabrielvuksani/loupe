@@ -1,8 +1,8 @@
 {
-  "name": "goldeye",
+  "name": "loupe",
   "private": true,
   "type": "module",
-  "description": "goldeye, a self-verifying browser. Deterministic design and a11y detection; AI only applies.",
+  "description": "loupe, a self-verifying browser. Deterministic design and a11y detection; AI only applies.",
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",

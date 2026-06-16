@@ -66,7 +66,7 @@ describe("connected · assertRenderableUrl (scheme + DNS rebinding guard)", () =
     await expect(assertRenderableUrl("http://example.com/")).resolves.toBeUndefined();
   });
 
-  it("allows localhost (core goldeye dev-loop target)", async () => {
+  it("allows localhost (core loupe dev-loop target)", async () => {
     lookupImpl = async () => [{ address: "127.0.0.1", family: 4 }];
     await expect(assertRenderableUrl("http://localhost:3000/")).resolves.toBeUndefined();
   });

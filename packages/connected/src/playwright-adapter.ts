@@ -13,7 +13,7 @@ import {
   type Finding,
   type PageSnapshot,
   type Score,
-} from "@goldeye/engine";
+} from "@loupe/engine";
 import { runLighthouse, type LighthouseScores } from "./lighthouse-adapter";
 import { crossBrowserFindings, resolveTargets, type CrossBrowserSummary } from "./cross-browser";
 
@@ -248,7 +248,7 @@ function dottedQuadTo32(ip: string): number | null {
   return addr >>> 0;
 }
 
-// True for an address goldeye must never render: IPv4 link-local 169.254.0.0/16
+// True for an address loupe must never render: IPv4 link-local 169.254.0.0/16
 // (the cloud metadata range, including encoded and IPv4-mapped IPv6 forms) and
 // IPv6 link-local fe80::/10. Loopback and RFC1918 are deliberately allowed: the
 // legitimate render target is the user's own dev server. Pure and synchronous.

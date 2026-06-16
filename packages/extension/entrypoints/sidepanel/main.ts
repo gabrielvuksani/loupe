@@ -1,4 +1,4 @@
-import type { ElementPacket, Finding, Score } from "@goldeye/engine";
+import type { ElementPacket, Finding, Score } from "@loupe/engine";
 
 const $ = (id: string): HTMLElement => document.getElementById(id) as HTMLElement;
 
@@ -55,7 +55,7 @@ function setMode(m: Mode): void {
   );
   $("modeNote").innerHTML =
     m === "connected"
-      ? `<b>Full loop.</b> Element packets stream to the goldeye engine and your CLI agent (${escapeHtml(agent)}) to apply, then re-verify.`
+      ? `<b>Full loop.</b> Element packets stream to the loupe engine and your CLI agent (${escapeHtml(agent)}) to apply, then re-verify.`
       : `<b>Local engine.</b> Deterministic checks run in your browser: contrast, target size, type scale, palette. $0, offline, nothing leaves the tab.`;
   const showRoot = m === "connected";
   $("rootLabel").style.display = showRoot ? "block" : "none";
@@ -80,7 +80,7 @@ function connectWs(): void {
     ws = new WebSocket(url);
     ws.addEventListener("open", () => toast("Engine connected"));
     ws.addEventListener("error", () =>
-      toast("Engine offline. Start: pnpm --filter @goldeye/connected serve"),
+      toast("Engine offline. Start: pnpm --filter @loupe/connected serve"),
     );
     ws.addEventListener("message", (e) => {
       try {
@@ -139,7 +139,7 @@ function renderAudit(findings: Finding[], score: Score): void {
   );
   $("findings").innerHTML = findings.length
     ? findings.map(findingHtml).join("")
-    : `<div class="empty">No findings. The page passes goldeye's deterministic checks.</div>`;
+    : `<div class="empty">No findings. The page passes loupe's deterministic checks.</div>`;
   wireFindingActions();
 }
 
@@ -181,7 +181,7 @@ function doDispatch(): void {
       ws.send(JSON.stringify({ type: "dispatch", agent, packet: lastPacket.packet, cwd }));
       toast(`Dispatched to ${agent}`);
     } else {
-      toast("Engine offline. Start: pnpm --filter @goldeye/connected serve");
+      toast("Engine offline. Start: pnpm --filter @loupe/connected serve");
     }
   } else {
     void navigator.clipboard

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { analyzeElement, buildPacket } from "@goldeye/engine";
+import { analyzeElement, buildPacket } from "@loupe/engine";
 import { composeDispatch, composeTastePrompt } from "../src/agents";
 
 const packet = buildPacket(
@@ -34,7 +34,7 @@ describe("composeTastePrompt", () => {
   it("asks for a 0 to 10 taste score and points back at the score tool", () => {
     const p = composeTastePrompt(packet);
     expect(p).toMatch(/0 to 10/);
-    expect(p).toMatch(/goldeye_score_taste/);
+    expect(p).toMatch(/loupe_score_taste/);
     expect(p).toMatch(/\.ghost/);
   });
 });

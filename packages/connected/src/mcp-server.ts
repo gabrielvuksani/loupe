@@ -9,30 +9,30 @@ import {
   buildPacket,
   packetToMarkdown,
   type ElementSnapshot,
-} from "@goldeye/engine";
+} from "@loupe/engine";
 import { renderAndAnalyze, reverifyAfterFix, type AppliedFix } from "./playwright-adapter";
 import { createSelectionStore, type SelectionStore } from "./selection-store";
 
-// goldeye connected engine as an MCP server. The agent calls these from its own
+// loupe connected engine as an MCP server. The agent calls these from its own
 // session; get_selection pulls whatever the Lens has selected in the browser.
 export function createServer(store: SelectionStore = createSelectionStore()): Server {
   const server = new Server(
-    { name: "goldeye", version: "0.0.0" },
+    { name: "loupe", version: "0.0.0" },
     { capabilities: { tools: {} } },
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: [
       {
-        name: "goldeye_get_selection",
+        name: "loupe_get_selection",
         description:
-          "Pull the element currently selected in the goldeye Lens: its findings, computed fixes, and source hint. Call this to act on what the user picked in the browser.",
+          "Pull the element currently selected in the loupe Lens: its findings, computed fixes, and source hint. Call this to act on what the user picked in the browser.",
         inputSchema: { type: "object", properties: {} },
       },
       {
-        name: "goldeye_score_taste",
+        name: "loupe_score_taste",
         description:
-          "Record your subjective 0-10 taste read for the current selection (typography, spacing, hierarchy, restraint). goldeye stays deterministic; this is your judgment, surfaced as advisory.",
+          "Record your subjective 0-10 taste read for the current selection (typography, spacing, hierarchy, restraint). loupe stays deterministic; this is your judgment, surfaced as advisory.",
         inputSchema: {
           type: "object",
           properties: {
@@ -43,7 +43,7 @@ export function createServer(store: SelectionStore = createSelectionStore()): Se
         },
       },
       {
-        name: "goldeye_reverify",
+        name: "loupe_reverify",
         description:
           "Re-judge a URL and report the before/after score. Omit fixes for a deterministic self-heal proof; pass an empty fixes array to re-judge the live page after you edited the source.",
         inputSchema: {
@@ -68,9 +68,9 @@ export function createServer(store: SelectionStore = createSelectionStore()): Se
         },
       },
       {
-        name: "goldeye_analyze_url",
+        name: "loupe_analyze_url",
         description:
-          "Render a URL in a real browser and return goldeye deterministic findings + axe-core a11y + Lighthouse scores.",
+          "Render a URL in a real browser and return loupe deterministic findings + axe-core a11y + Lighthouse scores.",
         inputSchema: {
           type: "object",
           properties: { url: { type: "string", description: "The URL to analyze." } },
@@ -78,7 +78,7 @@ export function createServer(store: SelectionStore = createSelectionStore()): Se
         },
       },
       {
-        name: "goldeye_analyze_element",
+        name: "loupe_analyze_element",
         description:
           "Run the deterministic engine on an element snapshot; returns the agent-pasteable packet (findings + computed fixes).",
         inputSchema: {
@@ -94,17 +94,17 @@ export function createServer(store: SelectionStore = createSelectionStore()): Se
     const name = req.params.name;
     const args = (req.params.arguments ?? {}) as Record<string, unknown>;
     try {
-      if (name === "goldeye_score_taste") {
+      if (name === "loupe_score_taste") {
         const raw = Number(args["score"]);
         const score = Math.max(0, Math.min(10, Number.isFinite(raw) ? raw : 0));
         store.setTaste({ score, notes: String(args["notes"] ?? "") });
         return { content: [{ type: "text", text: `Recorded taste ${score}/10.` }] };
       }
-      if (name === "goldeye_get_selection") {
+      if (name === "loupe_get_selection") {
         const packet = store.get();
         if (!packet) {
           return {
-            content: [{ type: "text", text: "No element is currently selected in the goldeye Lens." }],
+            content: [{ type: "text", text: "No element is currently selected in the loupe Lens." }],
           };
         }
         const taste = store.getTaste();
@@ -128,16 +128,16 @@ export function createServer(store: SelectionStore = createSelectionStore()): Se
         }
         return { content };
       }
-      if (name === "goldeye_reverify") {
+      if (name === "loupe_reverify") {
         const fixes = args["fixes"] as AppliedFix[] | undefined;
         const report = await reverifyAfterFix(String(args["url"]), fixes);
         return { content: [{ type: "text", text: JSON.stringify(report, null, 2) }] };
       }
-      if (name === "goldeye_analyze_url") {
+      if (name === "loupe_analyze_url") {
         const report = await renderAndAnalyze(String(args["url"]));
         return { content: [{ type: "text", text: JSON.stringify(report, null, 2) }] };
       }
-      if (name === "goldeye_analyze_element") {
+      if (name === "loupe_analyze_element") {
         const snap = args["snapshot"] as ElementSnapshot;
         const findings = analyzeElement(snap);
         return {

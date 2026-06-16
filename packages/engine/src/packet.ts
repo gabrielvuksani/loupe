@@ -40,7 +40,7 @@ export function buildPacket(snapshot: ElementSnapshot, findings: Finding[]): Ele
 // Render a packet as agent-pasteable Markdown.
 export function packetToMarkdown(packet: ElementPacket): string {
   const lines: string[] = [
-    `## goldeye · ${packet.tag} \`${packet.selector}\``,
+    `## loupe · ${packet.tag} \`${packet.selector}\``,
   ];
   if (packet.text) lines.push(`> "${packet.text}"`);
   if (packet.a11y) {

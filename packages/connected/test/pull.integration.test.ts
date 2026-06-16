@@ -14,9 +14,9 @@ import { createSelectionStore } from "../src/selection-store";
 // built MV3 extension publishes the Lens selection over the WS bridge, and a
 // real MCP-over-HTTP client (the exact transport an agent uses) pulls it. The
 // only piece not present is the LLM deciding to call the tool, which is not a
-// transport concern. Gated behind GOLDEYE_LIVE_PULL: it needs the built
+// transport concern. Gated behind LOUPE_LIVE_PULL: it needs the built
 // extension, headed Chromium, and the fixed WS port 8791.
-const live = Boolean(process.env["GOLDEYE_LIVE_PULL"]);
+const live = Boolean(process.env["LOUPE_LIVE_PULL"]);
 
 declare const chrome: {
   tabs: {
@@ -84,7 +84,7 @@ describe.runIf(live)("pull flow · real browser publishes, an HTTP MCP client pu
     await new Promise<void>((r) => fixture?.close(() => r()));
   });
 
-  it("a Connected-mode Lens selection reaches goldeye_get_selection over HTTP", async () => {
+  it("a Connected-mode Lens selection reaches loupe_get_selection over HTTP", async () => {
     const content = await ctx.newPage();
     await content.goto(base, { waitUntil: "load" });
     let sw = ctx.serviceWorkers()[0];
@@ -97,7 +97,7 @@ describe.runIf(live)("pull flow · real browser publishes, an HTTP MCP client pu
     const panel = await ctx.newPage();
     await panel.goto(`chrome-extension://${extId}/sidepanel.html`, { waitUntil: "load" });
     await panel.click('#mode .pill[data-mode="connected"]');
-    await panel.fill("#root", "/tmp/goldeye-pull");
+    await panel.fill("#root", "/tmp/loupe-pull");
     // The panel's WS reaching the bridge proves the chrome-extension:// origin is
     // accepted; wait on that rather than a blind timeout.
     const connected = await waitFor(() => wss.clients.size >= 1, 10000);
@@ -121,7 +121,7 @@ describe.runIf(live)("pull flow · real browser publishes, an HTTP MCP client pu
     for (let i = 0; i < 15 && !/ghost/.test(text); i++) {
       await content.click(".ghost").catch(() => {});
       await content.waitForTimeout(1000);
-      const res = await client.callTool({ name: "goldeye_get_selection", arguments: {} });
+      const res = await client.callTool({ name: "loupe_get_selection", arguments: {} });
       text = (res.content as Array<{ text?: string }>).map((c) => c.text ?? "").join(" ");
     }
 

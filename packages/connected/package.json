@@ -1,12 +1,12 @@
 {
-  "name": "@goldeye/connected",
+  "name": "@loupe/connected",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "goldeye connected engine. MCP server and WebSocket bridge. Real Playwright render, axe-core, and Lighthouse, working out of the box.",
+  "description": "loupe connected engine. MCP server and WebSocket bridge. Real Playwright render, axe-core, and Lighthouse, working out of the box.",
   "bin": {
-    "goldeye": "./dist/bin.js",
-    "goldeye-connected": "./dist/bin.js"
+    "loupe": "./dist/bin.js",
+    "loupe-connected": "./dist/bin.js"
   },
   "files": ["dist"],
   "scripts": {
@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@axe-core/playwright": "^4.10.1",
-    "@goldeye/engine": "workspace:*",
+    "@loupe/engine": "workspace:*",
     "@mdn/browser-compat-data": "^8.0.3",
     "@modelcontextprotocol/sdk": "^1.12.0",
     "@projectwallace/css-analyzer": "^9.9.0",
