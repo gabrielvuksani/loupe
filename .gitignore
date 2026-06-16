@@ -9,3 +9,8 @@ coverage/
 prototypes/
 BUILD_PLAN.md
 *.tgz
+
+# internal docs, kept local; the public repo shows only the README
+HANDOFF.md
+NEXT_SESSION.md
+docs/adr/
