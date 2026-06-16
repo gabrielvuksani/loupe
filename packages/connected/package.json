@@ -5,10 +5,14 @@
   "type": "module",
   "description": "goldeye connected engine. MCP server and WebSocket bridge. Real Playwright render, axe-core, and Lighthouse, working out of the box.",
   "bin": {
-    "goldeye-connected": "./src/bin.ts"
+    "goldeye": "./dist/bin.js",
+    "goldeye-connected": "./dist/bin.js"
   },
+  "files": ["dist"],
   "scripts": {
     "test": "vitest run",
+    "build": "node build.mjs",
+    "prepublishOnly": "node build.mjs",
     "mcp": "tsx src/bin.ts --mcp",
     "bridge": "tsx src/bin.ts --bridge",
     "serve": "tsx src/bin.ts --serve",
@@ -31,6 +35,7 @@
   "devDependencies": {
     "@types/pngjs": "^6.0.5",
     "@types/ws": "^8.5.13",
+    "esbuild": "^0.28.1",
     "tsx": "^4.19.2"
   }
 }
