@@ -38,6 +38,10 @@ export function popoverHtml(packet: ElementPacket, opts: PopoverOpts): string {
   const send = opts.connected
     ? `<button class="lp-act lp-gold" data-action="send">Send to ${escapeHtml(opts.agent)}</button>`
     : "";
+  // Preview only makes sense when there is a computed fix to apply on the page.
+  const preview = packet.fixes.length
+    ? `<button class="lp-act" data-action="preview">Preview fix</button>`
+    : "";
   const text = packet.text ? `<div class="lp-text">"${escapeHtml(packet.text)}"</div>` : "";
   const shot = screenshotImg(packet.screenshot);
   // Size, on-screen position, and the unambiguous target path: the same locating
@@ -72,6 +76,6 @@ export function popoverHtml(packet: ElementPacket, opts: PopoverOpts): string {
     <div class="lp-findings">${findings}</div>
     <div class="lp-actions">${send}
       <button class="lp-act" data-action="copy">Copy</button>
-      <button class="lp-act" data-action="preview">Preview</button>
+      ${preview}
     </div>`;
 }

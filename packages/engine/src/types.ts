@@ -5,6 +5,11 @@ export interface ElementStyles {
   backgroundColor?: string;
   fontSize?: string;
   fontWeight?: string;
+  fontFamily?: string;
+  lineHeight?: string;
+  padding?: string;
+  margin?: string;
+  borderRadius?: string;
   display?: string;
 }
 

@@ -53,3 +53,45 @@ describe("packet · precise targeting context for weak models", () => {
     expect(md).toMatch(/512/);
   });
 });
+
+describe("packetToMarkdown · change-focused element context", () => {
+  const rich: ElementSnapshot = {
+    selector: "#cta",
+    tag: "button",
+    text: "Get started",
+    uniqueSelector: "section.hero > button#cta",
+    styles: {
+      color: "rgb(255, 255, 255)",
+      backgroundColor: "rgb(37, 99, 235)",
+      fontSize: "15px",
+      fontWeight: "600",
+      fontFamily: "Inter",
+      padding: "8px 16px",
+      margin: "0px",
+      borderRadius: "8px",
+      display: "inline-block",
+    },
+    box: { x: 40, y: 120, width: 140, height: 44 },
+    a11y: { role: "button", name: "Get started" },
+    outerHTML: '<button id="cta" class="hero-cta">Get started</button>',
+  };
+
+  it("leads with the element, its current styles, and its HTML", () => {
+    const md = packetToMarkdown(buildPacket(rich, []));
+    expect(md).toMatch(/#cta/);
+    expect(md).toMatch(/Current styles/);
+    expect(md).toMatch(/rgb\(37, 99, 235\)/); // the current background, so the agent sees the look
+    expect(md).toMatch(/Inter/);
+    expect(md).toMatch(/padding 8px 16px/);
+    expect(md).toContain("```html");
+    expect(md).toContain('<button id="cta"');
+    expect(md).toMatch(/button#cta/); // the unique target
+  });
+
+  it("does not push a score or an empty findings section at the agent for a clean element", () => {
+    const md = packetToMarkdown(buildPacket(rich, []));
+    expect(md).not.toMatch(/Score: 100/);
+    expect(md).not.toMatch(/0 finding/);
+    expect(md.toLowerCase()).not.toContain("loupe findings");
+  });
+});

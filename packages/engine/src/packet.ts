@@ -69,35 +69,56 @@ export function findingsToMarkdown(
   return lines.join("\n");
 }
 
-// Render a packet as agent-pasteable Markdown. Leads with what + where + how to
-// target the element so even a small model acts without guessing.
+// Render a packet as agent-pasteable Markdown, built for the common case: the
+// user picked this element and wants the agent to change it. Lead with what the
+// element is, where it sits, how to target it, its current styles, and its HTML,
+// so a model can edit it without guessing. loupe's own findings come last and
+// only when there are any; an audit-clean element is not noise to the agent.
 export function packetToMarkdown(packet: ElementPacket): string {
   const lines: string[] = [`## loupe · ${packet.tag} \`${packet.selector}\``];
   if (packet.text) lines.push(`> "${packet.text}"`);
+
+  const where: string[] = [];
   if (packet.box) {
-    const size = `${Math.round(packet.box.width)}x${Math.round(packet.box.height)}px`;
-    const at =
-      packet.box.x !== undefined && packet.box.y !== undefined
-        ? ` at viewport (${Math.round(packet.box.x)}, ${Math.round(packet.box.y)})`
-        : "";
-    lines.push(`${size}${at}`);
+    where.push(`${Math.round(packet.box.width)}x${Math.round(packet.box.height)}px`);
+    if (packet.box.x !== undefined && packet.box.y !== undefined) {
+      where.push(`at (${Math.round(packet.box.x)}, ${Math.round(packet.box.y)})`);
+    }
   }
-  if (packet.uniqueSelector) lines.push(`target: \`${packet.uniqueSelector}\``);
+  if (packet.uniqueSelector) where.push(`target \`${packet.uniqueSelector}\``);
+  if (where.length) lines.push(`Where: ${where.join(" · ")}`);
   if (packet.a11y) {
-    const name = packet.a11y.name ? ` · name: "${packet.a11y.name}"` : "";
-    lines.push(`role: ${packet.a11y.role}${name}`);
+    const name = packet.a11y.name ? ` · name "${packet.a11y.name}"` : "";
+    lines.push(`Role: ${packet.a11y.role}${name}`);
   }
   if (packet.source) {
-    const line = packet.source.line ? `:${packet.source.line}` : "";
-    lines.push(`source: ${packet.source.file}${line}`);
+    const at = packet.source.line ? `:${packet.source.line}` : "";
+    lines.push(`Source: ${packet.source.file}${at}`);
   }
-  lines.push(`Score: ${packet.score}/100 · ${packet.findings.length} finding(s)`, "");
-  for (const f of packet.findings) {
-    lines.push(`- **[${f.severity}/${f.category}] ${f.ruleId}**: ${f.message}`);
-    if (f.fix) {
-      lines.push(`  - fix: \`${f.fix.property}\` ${f.fix.from} → ${f.fix.to} (${f.fix.rationale})`);
-      if (f.fix.alternative) {
-        lines.push(`    - alt: ${f.fix.alternative.to} (${f.fix.alternative.rationale})`);
+
+  const s = packet.styles;
+  const styleLines: string[] = [];
+  if (s.color || s.backgroundColor) {
+    styleLines.push(`- color ${s.color ?? "?"}${s.backgroundColor ? ` on ${s.backgroundColor}` : ""}`);
+  }
+  const font = [s.fontSize, s.fontWeight, s.fontFamily].filter(Boolean).join(" ");
+  if (font) styleLines.push(`- font ${font}${s.lineHeight ? `, line-height ${s.lineHeight}` : ""}`);
+  if (s.padding || s.margin) styleLines.push(`- padding ${s.padding ?? "?"}, margin ${s.margin ?? "?"}`);
+  const radius = s.borderRadius && s.borderRadius !== "0px" ? `, radius ${s.borderRadius}` : "";
+  if (s.display) styleLines.push(`- display ${s.display}${radius}`);
+  if (styleLines.length) lines.push("", "Current styles:", ...styleLines);
+
+  if (packet.outerHTML) lines.push("", "HTML:", "```html", packet.outerHTML, "```");
+
+  if (packet.findings.length) {
+    lines.push("", `loupe findings (${packet.findings.length}), score ${packet.score}/100:`);
+    for (const f of packet.findings) {
+      lines.push(`- [${f.severity}/${f.category}] ${f.ruleId}: ${f.message}`);
+      if (f.fix) {
+        lines.push(`  - fix: \`${f.fix.property}\` ${f.fix.from} → ${f.fix.to} (${f.fix.rationale})`);
+        if (f.fix.alternative) {
+          lines.push(`    - alt: ${f.fix.alternative.to} (${f.fix.alternative.rationale})`);
+        }
       }
     }
   }
