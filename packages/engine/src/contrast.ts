@@ -1,6 +1,6 @@
 // WCAG 2.1 contrast math, with an OKLCH lightness search for the suggested fix.
 import { converter, clampRgb } from "culori";
-import { calcAPCA } from "apca-w3";
+import { apcaLc } from "./apca";
 
 const toOklch = converter("oklch");
 const toRgb = converter("rgb");
@@ -62,8 +62,7 @@ export function apcaContrast(fg: string, bg: string): number | null {
   const f = parseColor(fg);
   const b = parseColor(bg);
   if (!f || !b) return null;
-  const lc = calcAPCA(rgbString(f), rgbString(b));
-  return Number.isFinite(lc) ? Math.round(Math.abs(lc)) : null;
+  return apcaLc(rgbString(f), rgbString(b));
 }
 
 // The suggested fix color: search OKLCH lightness, keeping the original hue and
