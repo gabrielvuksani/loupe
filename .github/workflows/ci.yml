@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "feat/**"
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm/action-setup reads the packageManager field in package.json.
+      # version is pinned here for clarity; it matches pnpm@10.0.0.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Typecheck engine
+        run: pnpm --filter @goldeye/engine exec tsc --noEmit
+
+      - name: Typecheck connected
+        run: pnpm --filter @goldeye/connected exec tsc --noEmit
+
+      - name: Typecheck extension
+        run: pnpm --filter @goldeye/extension exec tsc --noEmit
+
+  # MV3 extension service workers require a headed Chromium instance, so this
+  # job is best-effort: it runs under a virtual display via xvfb and is marked
+  # non-blocking so a flaky headed run never gates the test job above.
+  integration:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium for Playwright
+        run: pnpm --filter @goldeye/connected exec playwright install --with-deps chromium
+
+      # The extension e2e tests load the built MV3 bundle from .output/chrome-mv3.
+      - name: Build extension
+        run: pnpm --filter @goldeye/extension build
+
+      - name: Integration tests
+        run: xvfb-run -a pnpm test:integration
