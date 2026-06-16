@@ -123,4 +123,36 @@ describe("extension · content script runs the engine in-page (real browser, loa
     );
     expect(pop.toLowerCase()).toContain("contrast");
   }, 60000);
+
+  it("applies and clears a color-vision simulation filter on the page", async () => {
+    const page = await ctx.newPage();
+    await page.goto(base, { waitUntil: "load" });
+    let sw = ctx.serviceWorkers()[0];
+    if (!sw) sw = await ctx.waitForEvent("serviceworker", { timeout: 15000 });
+    await page.waitForTimeout(300);
+
+    const send = async (cvd: string | null): Promise<void> => {
+      await sw.evaluate(async (value) => {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        const id = tabs[0]?.id;
+        if (id != null) chrome.tabs.sendMessage(id, { type: "set-vision", cvd: value });
+      }, cvd);
+    };
+
+    await send("deuteranopia");
+    await page.waitForFunction(() => document.body.style.filter.includes("loupe-cvd-deuteranopia"), {
+      timeout: 8000,
+    });
+    // the matching SVG filter def was injected with the engine's matrix
+    const hasDef = await page.evaluate(() =>
+      Boolean(document.getElementById("loupe-cvd-deuteranopia")),
+    );
+    expect(hasDef).toBe(true);
+
+    // turning it off restores normal vision
+    await send(null);
+    await page.waitForFunction(() => !document.body.style.filter.includes("loupe-cvd"), {
+      timeout: 8000,
+    });
+  }, 60000);
 });

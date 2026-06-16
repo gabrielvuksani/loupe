@@ -6,6 +6,9 @@ import {
   capturePage,
   packetToMarkdown,
   scoreFindings,
+  svgColorMatrix,
+  CVD_MATRICES,
+  type CvdType,
   type ElementPacket,
   type ElementSnapshot,
   type Finding,
@@ -294,6 +297,46 @@ export default defineContentScript({
       publish(packet);
     };
 
+    // ---------- color-vision simulation overlay ----------
+    // Inject one SVG color-matrix filter per deficiency, then filter <body>.
+    // loupe's highlight and popover live on <html>, outside <body>, so they stay
+    // true-color while the page below is simulated. Same matrices as the engine's
+    // detector, so what you see is exactly what loupe flags.
+    const SVG_NS = "http://www.w3.org/2000/svg";
+    let cvdDefs = false;
+    let priorBodyFilter: string | null = null;
+    const ensureCvdDefs = (): void => {
+      if (cvdDefs) return;
+      const svg = document.createElementNS(SVG_NS, "svg");
+      svg.id = "loupe-cvd-defs";
+      svg.setAttribute("aria-hidden", "true");
+      svg.style.cssText = "position:absolute;width:0;height:0;pointer-events:none;";
+      for (const type of Object.keys(CVD_MATRICES) as CvdType[]) {
+        const filter = document.createElementNS(SVG_NS, "filter");
+        filter.setAttribute("id", `loupe-cvd-${type}`);
+        filter.setAttribute("color-interpolation-filters", "sRGB");
+        const fe = document.createElementNS(SVG_NS, "feColorMatrix");
+        fe.setAttribute("type", "matrix");
+        fe.setAttribute("values", svgColorMatrix(type));
+        filter.appendChild(fe);
+        svg.appendChild(filter);
+      }
+      document.documentElement.appendChild(svg);
+      cvdDefs = true;
+    };
+    const setVision = (cvd: CvdType | null): void => {
+      const body = document.body;
+      if (!body) return;
+      if (priorBodyFilter === null) priorBodyFilter = body.style.filter;
+      if (cvd) {
+        ensureCvdDefs();
+        body.style.filter = `url(#loupe-cvd-${cvd})`;
+      } else {
+        body.style.filter = priorBodyFilter || "";
+        priorBodyFilter = null;
+      }
+    };
+
     // ---------- pointer wiring ----------
     const onMove = (e: MouseEvent): void => {
       const el = e.target as Element | null;
@@ -315,6 +358,7 @@ export default defineContentScript({
         selector?: string;
         property?: string;
         to?: string;
+        cvd?: string;
       };
       if (msg.type === "set-inspect") {
         inspecting = Boolean(msg.value);
@@ -354,6 +398,8 @@ export default defineContentScript({
       } else if (msg.type === "preview-fix" && msg.selector && msg.property && msg.to) {
         const el = document.querySelector(msg.selector) as HTMLElement | null;
         if (el) el.style.setProperty(msg.property, msg.to);
+      } else if (msg.type === "set-vision") {
+        setVision((msg.cvd as CvdType | undefined) ?? null);
       }
     });
   },

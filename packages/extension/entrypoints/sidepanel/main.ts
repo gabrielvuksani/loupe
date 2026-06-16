@@ -253,6 +253,12 @@ $("inspect").addEventListener("click", () => {
   void toTab({ type: "set-inspect", value: inspecting });
 });
 $("scan").addEventListener("click", () => void toTab({ type: "analyze-page" }));
+// Color-vision simulation: a pure client-side overlay, works in either mode.
+$("vision").addEventListener("change", () => {
+  const cvd = ($("vision") as HTMLSelectElement).value;
+  void toTab({ type: "set-vision", cvd: cvd || null });
+  toast(cvd ? `Simulating ${cvd}` : "Vision simulation off");
+});
 document.querySelectorAll("#mode .pill").forEach((b) =>
   b.addEventListener("click", () => setMode((b as HTMLElement).dataset["mode"] as Mode)),
 );

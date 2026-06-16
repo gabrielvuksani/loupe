@@ -72,6 +72,10 @@
       .btn.on { background: rgba(232,181,74,0.16); border-color: rgba(232,181,74,0.4); color: var(--gold-bright); }
       .rootInput { width: 100%; margin: 8px 2px 0; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line2); background: rgba(0,0,0,0.25); color: var(--ink); font-family: "Geist Mono", monospace; font-size: 11px; }
       .rootInput::placeholder { color: var(--faint); }
+      select.rootInput { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 30px;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'><path d='M2.5 4.5L6 8l3.5-3.5' stroke='%23e8b54a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+        background-repeat: no-repeat; background-position: right 11px center; }
+      select.rootInput option { background: var(--bg2); color: var(--ink); }
 
       .score { display: flex; align-items: center; gap: 14px; margin: 14px 0 4px; padding: 14px 16px; border-radius: 14px; background: rgba(255,255,255,0.025); border: 1px solid var(--line); }
       .ring { width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; font-weight: 700; font-size: 16px; background: conic-gradient(var(--gold) calc(var(--p) * 1%), rgba(255,255,255,0.08) 0); }
@@ -135,6 +139,16 @@
         <button class="btn" id="inspect">Inspect element</button>
         <button class="btn" id="scan">Scan page</button>
       </div>
+
+      <div class="label">Color vision</div>
+      <select id="vision" class="rootInput" aria-label="Color vision simulation">
+        <option value="">Normal vision</option>
+        <option value="protanopia">Protanopia · red-green</option>
+        <option value="deuteranopia">Deuteranopia · red-green</option>
+        <option value="tritanopia">Tritanopia · blue-yellow</option>
+        <option value="achromatopsia">Achromatopsia · no color</option>
+      </select>
+      <p class="note">See the page as a color-blind viewer does, the same simulation loupe uses to flag confusable colors.</p>
 
       <div id="scoreHost"></div>
       <div id="findings"><div class="empty">Scan the page, or inspect an element, to see loupe's verdict.</div></div>
