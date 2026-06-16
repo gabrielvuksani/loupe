@@ -23,10 +23,14 @@ export interface SourceLocation {
 
 export interface ElementSnapshot {
   selector: string;
+  // A full, unambiguous path (nth-of-type segments) so even a weak model can
+  // target this exact element, not just the first match of a short selector.
+  uniqueSelector?: string;
   tag: string;
   text?: string;
   styles: ElementStyles;
-  box?: { width: number; height: number };
+  // Viewport geometry: x/y locate the element, width/height size it.
+  box?: { x?: number; y?: number; width: number; height: number };
   outerHTML?: string;
   a11y?: A11yNode;
   source?: SourceLocation;

@@ -8,6 +8,7 @@ export function captureElement(el: Element): ElementSnapshot {
   const text = (el.textContent ?? "").trim().slice(0, 120);
   const snapshot: ElementSnapshot = {
     selector: cssPath(el),
+    uniqueSelector: uniquePath(el),
     tag: el.tagName.toLowerCase(),
     styles: {
       color: cs.color,
@@ -16,7 +17,7 @@ export function captureElement(el: Element): ElementSnapshot {
       fontWeight: cs.fontWeight,
       display: cs.display,
     },
-    box: { width: rect.width, height: rect.height },
+    box: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
   };
   if (text) snapshot.text = text;
   return snapshot;
@@ -75,6 +76,32 @@ function resolveBackground(el: Element): string {
     node = node.parentElement;
   }
   return "rgb(255, 255, 255)";
+}
+
+// A full, unambiguous path (nth-of-type at each level, stopping at an id or six
+// levels up) so an agent can target this exact element rather than the first
+// match of a short selector.
+function uniquePath(el: Element): string {
+  if (el.id) return `#${CSS.escape(el.id)}`;
+  const parts: string[] = [];
+  let node: Element | null = el;
+  let depth = 0;
+  while (node && node.nodeType === 1 && depth < 6) {
+    if (node.id) {
+      parts.unshift(`#${CSS.escape(node.id)}`);
+      break;
+    }
+    let seg = node.tagName.toLowerCase();
+    const parent = node.parentElement;
+    if (parent) {
+      const sameTag = Array.from(parent.children).filter((c) => c.tagName === node!.tagName);
+      if (sameTag.length > 1) seg += `:nth-of-type(${sameTag.indexOf(node) + 1})`;
+    }
+    parts.unshift(seg);
+    node = node.parentElement;
+    depth += 1;
+  }
+  return parts.join(" > ");
 }
 
 // A short CSS selector for an element.

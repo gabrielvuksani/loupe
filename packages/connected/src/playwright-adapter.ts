@@ -49,6 +49,30 @@ function captureInPage(): { page: PageSnapshot; elements: ElementSnapshot[] } {
     const c = el.classList[0];
     return c ? `${tag}.${c}` : tag;
   };
+  const uniquePath = (el: Element): string => {
+    const he = el as HTMLElement;
+    if (he.id) return `#${CSS.escape(he.id)}`;
+    const parts: string[] = [];
+    let node: Element | null = el;
+    let depth = 0;
+    while (node && node.nodeType === 1 && depth < 6) {
+      const id = (node as HTMLElement).id;
+      if (id) {
+        parts.unshift(`#${CSS.escape(id)}`);
+        break;
+      }
+      let seg = node.tagName.toLowerCase();
+      const parent = node.parentElement;
+      if (parent) {
+        const sameTag = Array.from(parent.children).filter((c) => c.tagName === node!.tagName);
+        if (sameTag.length > 1) seg += `:nth-of-type(${sameTag.indexOf(node) + 1})`;
+      }
+      parts.unshift(seg);
+      node = node.parentElement;
+      depth += 1;
+    }
+    return parts.join(" > ");
+  };
 
   const fams = new Set<string>();
   const weights = new Set<number>();
@@ -89,6 +113,7 @@ function captureInPage(): { page: PageSnapshot; elements: ElementSnapshot[] } {
       if (r.width === 0 || r.height === 0) continue;
       const snap: ElementSnapshot = {
         selector: path(el),
+        uniqueSelector: uniquePath(el),
         tag,
         styles: {
           color: cs.color,
@@ -97,7 +122,7 @@ function captureInPage(): { page: PageSnapshot; elements: ElementSnapshot[] } {
           fontWeight: cs.fontWeight,
           display: cs.display,
         },
-        box: { width: r.width, height: r.height },
+        box: { x: r.x, y: r.y, width: r.width, height: r.height },
       };
       if (txt) snap.text = txt.slice(0, 120);
       elements.push(snap);

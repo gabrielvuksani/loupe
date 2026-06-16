@@ -28,3 +28,28 @@ describe("packetToMarkdown", () => {
     expect(md).toContain("→");
   });
 });
+
+describe("packet · precise targeting context for weak models", () => {
+  const located: ElementSnapshot = {
+    selector: ".ghost",
+    uniqueSelector: "main > section.hero > button.ghost:nth-of-type(2)",
+    tag: "button",
+    text: "Watch the tour",
+    styles: { color: "rgb(174, 182, 194)", backgroundColor: "rgb(255, 255, 255)" },
+    box: { x: 24, y: 512, width: 90, height: 32 },
+  };
+
+  it("carries the unique selector and viewport position", () => {
+    const packet = buildPacket(located, analyzeElement(located));
+    expect(packet.uniqueSelector).toBe("main > section.hero > button.ghost:nth-of-type(2)");
+    expect(packet.box?.x).toBe(24);
+    expect(packet.box?.y).toBe(512);
+  });
+
+  it("renders the exact selector to target and where it sits", () => {
+    const md = packetToMarkdown(buildPacket(located, analyzeElement(located)));
+    expect(md).toContain("main > section.hero > button.ghost:nth-of-type(2)");
+    expect(md).toMatch(/24/);
+    expect(md).toMatch(/512/);
+  });
+});

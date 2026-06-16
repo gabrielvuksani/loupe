@@ -127,6 +127,10 @@ describe.runIf(live)("pull flow · real browser publishes, an HTTP MCP client pu
 
     expect(text).toMatch(/ghost/);
     expect(text.toLowerCase()).toContain("contrast");
+    // The enriched context a weak model needs: an exact selector to target and
+    // where the element sits, both captured by the real content script.
+    expect(text).toContain("target:");
+    expect(text).toMatch(/at viewport \(/);
     await client.close();
   }, 120000);
 });
