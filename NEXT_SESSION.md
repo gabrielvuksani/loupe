@@ -8,6 +8,11 @@
 > and green, plus accent-spread and shades-per-color (built from a new per-color
 > frequency capture). Only hierarchy levers is left as a standalone rule, and its intent
 > is already covered by type-scale, font-weights, and color-count. See HANDOFF.md.
+>
+> Update 2026-06-16 (daemon session): productization (a standalone `goldeye serve` esbuild
+> bundle, MCP registration docs for all three agents, CI), the full pull flow proven with a
+> real browser plus a real MCP-over-HTTP client, SSRF + an optional WS token, and a real-site
+> validation that drove a target-size false-positive fix are all done. Ready for the PR to main.
 
 Mandate: complete this whole list end to end without checking in. The v0 substrate
 (engine, connected, extension) is built and green. This pass closes the gaps the

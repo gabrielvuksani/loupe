@@ -20,30 +20,36 @@ docs/adr/0001 and in Engram (topic_key architecture/goldeye-loop).
 - packages/extension: WXT MV3 Lens. On-page shadow-DOM popover with full actions,
   axe-core in Standalone, a11y node + source + screenshot capture, publishes the
   selection and dispatches over the bridge. Side panel mirrors the selection.
-- 74 unit tests and 4 real-browser integration tests are green; a 5th gated
-  live-dispatch e2e was run live with Claude Code and passed. Typecheck clean across
-  all 3 packages.
+- 97 unit tests and 4 real-browser integration tests green. Gated e2e (opt-in): the
+  full PULL flow ran live (a real MV3 extension in headed Chromium publishes a
+  Connected-mode selection over the WS bridge, a real MCP-over-HTTP client pulls it),
+  and the live-dispatch e2e ran with Claude Code. Typecheck clean across all 3 packages.
+- packages/connected also serves a long-running MCP-over-HTTP daemon (`goldeye serve` =
+  WS bridge :8791 + MCP on http://127.0.0.1:8792/mcp), ships as a self-contained esbuild
+  bundle (`node dist/bin.js serve`), and has an optional one-time WS token (`serve --token`).
 
 ## Run
 - pnpm install
-- pnpm test (39 unit, fast)
-- pnpm test:integration (real browser; the extension e2e needs headed Chromium, macOS ok)
+- pnpm test (97 unit, fast)
+- pnpm test:integration (real browser; 4 pass, gated pull/realworld/dispatch need flags)
 - pnpm --filter @goldeye/extension build, then load .output/chrome-mv3 unpacked
-- pnpm --filter @goldeye/connected serve  (the WS bridge + MCP server together)
+- pnpm --filter @goldeye/connected serve  (the daemon: WS bridge :8791 + MCP over HTTP :8792)
+- add `--token` for the optional one-time WS token
 
 ## Pull loop, in one line
 Register goldeye as an MCP server in your agent, select an element in the Lens, the
 agent calls goldeye_get_selection, edits its own repo, then calls goldeye_reverify.
 
-Verification status (be precise): the in-process seam (WS publish -> shared store ->
-MCP get_selection) is unit-tested, and the SPAWN fallback (runDispatch -> claude/codex
-edits source -> re-judge) ran live with Claude Code and passed. The full PULL path with
-a real browser plus a real agent session has NOT been run end to end yet. Caveat: the
-documented `claude mcp add --transport stdio ... serve` spawns serve PER agent, and that
-subprocess binds :8791 for the browser. So Connected mode only works while an agent
-session is up, and you must NOT also run a separate `pnpm serve` (it would fail to bind
-:8791 and the agent would read an empty store). A long-running serve daemon with an
-HTTP/SSE MCP transport is the recommended follow-up to make pull robust.
+Verification status (be precise): the full PULL path is now proven with real components.
+A gated integration test (GOLDEYE_LIVE_PULL) runs the built MV3 extension in headed
+Chromium, publishes a Connected-mode selection over the WS bridge from a chrome-extension
+origin, and a real MCP-over-HTTP client (StreamableHTTPClientTransport, the exact transport
+an agent uses) pulls it via goldeye_get_selection. Only the LLM deciding to call the tool is
+absent, which is not a transport concern. The SPAWN fallback (runDispatch -> claude/codex
+edits source -> re-judge) ran live with Claude Code. The old stdio port-collision footgun is
+RESOLVED: `goldeye serve` is ONE long-running daemon (WS bridge :8791 + MCP over HTTP :8792)
+and every agent attaches over http://127.0.0.1:8792/mcp, so there is no per-agent process and
+no :8791 contention.
 
 ## Remaining (honest)
 - The page snapshot now captures per-color frequency (colorUsage), so accent-spread
@@ -61,24 +67,24 @@ HTTP/SSE MCP transport is the recommended follow-up to make pull robust.
   fixture CSS, goldeye re-rendered, the contrast finding cleared and the score rose. Codex
   was blocked by an account usage limit that day, not a goldeye defect.
 
-## Remaining for a real ship (the next session's menu)
-The full prioritized version with rationale is in the OS temp handoff doc
-(goldeye-handoff-2026-06-16.md) and Engram (topic_key architecture/goldeye-loop).
-Condensed and durable here so it does not depend on the temp dir:
-1. Productize: package @goldeye/connected as an installable (an `npx goldeye serve`
-   story), distribute the extension, MCP registration docs for Codex and OpenCode, add
-   CI under .github/workflows, and actually test on Windows (only macOS is verified).
-2. Prove the pull flow end to end with a real browser plus a real agent (see the
-   Verification status above: the in-process seam is tested, the full run is not).
-3. Security depth: optional WS one-time token (the drive-by RCE is already closed),
-   and SSRF link-local / metadata-IP blocking on top of the http(s) scheme guard.
-4. Validation: run the loop against real production sites; visual QA of the popover and
-   panel against prototypes/03-lens-extension.html (the chosen design).
-5. Deferred future (NEXT_SESSION.md "Out of scope" + ADR 0001): the app-maker (Lovable
-   twist), the Conductor redesign (prototype rejected), cloud connected mode, the deeper
-   vm-browser merge. hierarchy-levers is intentionally not a standalone rule.
-Branch feat/design-mode-feature is NOT merged to main and has no PR; opening it is the
-natural first step (superpowers:finishing-a-development-branch).
+## Remaining for a real ship (status after the 2026-06-16 daemon session)
+1. Productize: DONE. `goldeye serve` is a self-contained esbuild bundle
+   (packages/connected/build.mjs inlines @goldeye/engine); `node dist/bin.js serve` boots
+   the daemon with no monorepo. MCP registration docs for Claude Code (http), Codex, and
+   OpenCode are in README. CI is at .github/workflows/ci.yml. STILL MANUAL: the actual
+   `npm publish` (creds needed; bin/files/prepublishOnly are ready) to get the literal
+   `npx goldeye serve`, and a real Windows run (only macOS verified).
+2. Prove the pull flow end to end: DONE (see Verification status above).
+3. Security depth: DONE. SSRF link-local/metadata blocking in assertRenderableUrl (allows
+   loopback + RFC1918 dev servers). Optional one-time WS token via `goldeye serve --token`
+   plus a Lens panel field.
+4. Validation: DONE. The gated realworld.integration.test renders real production sites; it
+   surfaced and drove a fix (target-size now exempts inline <a> per WCAG 2.5.5, which
+   dropped the dominant false positive: HN target-size 59 -> 0, example.com a11y 88 -> 100).
+   Visual QA: the built side panel matches prototype 03's palette and fonts.
+5. Deferred future (unchanged): the app-maker, Conductor redesign, cloud mode, vm-browser
+   merge. hierarchy-levers is intentionally not a standalone rule.
+The branch is ready for the PR to main (superpowers:finishing-a-development-branch).
 
 ## Gotchas
 - The WS bridge binds 127.0.0.1 and rejects non-extension origins (verifyClient), so a
