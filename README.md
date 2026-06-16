@@ -116,6 +116,25 @@ Plus axe-core for accessibility in Standalone, and Lighthouse scores in Connecte
 
 A zero-false-positive guard test runs on every rule, because a linter that cries wolf is worse than no linter. We learned that out loud: an early build flagged 59 "too small" tap targets on Hacker News that were all inline links, and a beautifully built site like Stripe scored far lower than it should have. The inline-link exemption fixed both without letting real issues through.
 
+## Install and use
+
+You need Node 22 or newer.
+
+Until the Chrome Web Store listing is live, load the Lens unpacked:
+
+1. `pnpm install && pnpm --filter @loupe/extension build`
+2. Open `chrome://extensions`, turn on Developer mode, click **Load unpacked**, and pick `packages/extension/.output/chrome-mv3`.
+3. Click the Loupe icon to open the side panel. **Standalone** mode works right away: inspect an element for a verdict and a fix, or scan the page.
+
+For the agent loop (**Connected** mode), run the daemon from anywhere:
+
+```
+npx loupe-cli serve              # WebSocket bridge + MCP server on 127.0.0.1
+npx playwright install chromium  # once, for the render and re-verify tools
+```
+
+Then connect your coding agent to the MCP server at `http://127.0.0.1:8792/mcp` (Claude Code, Codex, or OpenCode), switch the panel to Connected, set your project root, and hit Send. The agent edits your source, and loupe re-renders and re-judges so you watch the score climb.
+
 ## Run it from source
 
 ```
