@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { analyzeElement, buildPacket } from "@loupe/engine";
-import { composeDispatch, composeTastePrompt } from "../src/agents";
+import { composeDispatch, composeBatchDispatch, composeTastePrompt } from "../src/agents";
 
 const packet = buildPacket(
   { selector: ".ghost", tag: "button", styles: { color: "rgb(174, 182, 194)", backgroundColor: "rgb(255, 255, 255)" } },
@@ -41,6 +41,33 @@ describe("composeDispatch · user request", () => {
   it("falls back to fixing the findings when no request is given", () => {
     const d = composeDispatch("Claude Code", packet, "/repo");
     expect(d.args.join("\n")).toMatch(/highest-severity fix/i);
+  });
+});
+
+describe("composeBatchDispatch: fix everything from a page audit", () => {
+  const findings = analyzeElement({
+    selector: ".ghost",
+    tag: "button",
+    styles: { color: "rgb(174, 182, 194)", backgroundColor: "rgb(255, 255, 255)" },
+  });
+
+  it("composes a Claude Code apply carrying every finding and the page score", () => {
+    const d = composeBatchDispatch("Claude Code", findings, "/repo", undefined, {
+      url: "https://x.test",
+      score: 60,
+    });
+    expect(d.cmd).toBe("claude");
+    expect(d.cwd).toBe("/repo");
+    const prompt = d.args.join("\n");
+    expect(prompt).toMatch(/page audit/i);
+    expect(prompt).toMatch(/contrast/i);
+    expect(prompt).toMatch(/score 60\/100/);
+  });
+
+  it("carries the user's request across the whole page", () => {
+    const d = composeBatchDispatch("Codex", findings, "/repo", "tighten the visual hierarchy");
+    expect(d.cmd).toBe("codex");
+    expect(d.args.join("\n")).toMatch(/tighten the visual hierarchy/);
   });
 });
 

@@ -39,6 +39,36 @@ export function buildPacket(snapshot: ElementSnapshot, findings: Finding[]): Ele
   return packet;
 }
 
+// Render a whole page audit as one agent-pasteable batch. Findings are grouped
+// by selector so a small model fixes one element at a time, each with its exact
+// computed fix. This is the "fix everything" packet, the page-level analog of
+// packetToMarkdown.
+export function findingsToMarkdown(
+  findings: readonly Finding[],
+  context?: { url?: string; score?: number },
+): string {
+  const lines: string[] = [`## loupe · page audit${context?.url ? ` · ${context.url}` : ""}`];
+  const score = context?.score !== undefined ? ` · score ${context.score}/100` : "";
+  lines.push(`${findings.length} finding(s)${score}`, "");
+
+  const bySelector = new Map<string, Finding[]>();
+  for (const f of findings) {
+    const group = bySelector.get(f.selector);
+    if (group) group.push(f);
+    else bySelector.set(f.selector, [f]);
+  }
+  for (const [selector, group] of bySelector) {
+    lines.push(`### \`${selector}\``);
+    for (const f of group) {
+      lines.push(`- **[${f.severity}/${f.category}] ${f.ruleId}**: ${f.message}`);
+      if (f.fix) {
+        lines.push(`  - fix: \`${f.fix.property}\` ${f.fix.from} → ${f.fix.to} (${f.fix.rationale})`);
+      }
+    }
+  }
+  return lines.join("\n");
+}
+
 // Render a packet as agent-pasteable Markdown. Leads with what + where + how to
 // target the element so even a small model acts without guessing.
 export function packetToMarkdown(packet: ElementPacket): string {

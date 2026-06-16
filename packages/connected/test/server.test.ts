@@ -168,6 +168,25 @@ describe("WebSocket bridge", () => {
     await new Promise<void>((r) => wss.close(() => r()));
   });
 
+  it("rejects a batch dispatch missing the project root with a helpful status", async () => {
+    const wss = startBridge(0);
+    const port = await listeningPort(wss);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}`);
+
+    const result = await new Promise<{ phase: string; message?: string }>((resolve, reject) => {
+      ws.on("open", () =>
+        ws.send(JSON.stringify({ type: "dispatch-batch", id: 3, agent: "Claude Code", findings: [] })),
+      );
+      ws.on("message", (d) => resolve(JSON.parse(String(d))));
+      ws.on("error", reject);
+    });
+
+    expect(result.phase).toBe("error");
+    expect(result.message).toMatch(/project root/i);
+    ws.close();
+    await new Promise<void>((r) => wss.close(() => r()));
+  });
+
   it("rejects a connection from a web-page origin so a visited site cannot dispatch", async () => {
     const wss = startBridge(0);
     const port = await listeningPort(wss);

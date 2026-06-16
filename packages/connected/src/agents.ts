@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { packetToMarkdown, type ElementPacket } from "@loupe/engine";
+import { packetToMarkdown, findingsToMarkdown, type ElementPacket, type Finding } from "@loupe/engine";
 
 export type AgentName = "Claude Code" | "Codex" | "OpenCode";
 
@@ -16,12 +16,27 @@ export interface DispatchResult {
   stderr: string;
 }
 
+export interface PageContext {
+  url?: string;
+  score?: number;
+}
+
 function buildPrompt(packet: ElementPacket, request?: string): string {
   const want = (request ?? "").trim();
   const instruction = want
     ? `The user wants this change applied to the element above:\n"${want}"\n\nMake that change in the source for this element, keep the surrounding design consistent, then re-verify with loupe_reverify.`
     : "Apply the highest-severity fix above to the source for this element. Make the smallest change that resolves the finding, then stop.";
   return [packetToMarkdown(packet), "", instruction].join("\n");
+}
+
+// The batch prompt: every finding on the page, grouped by element, each with its
+// computed fix. This is "fix everything" in one dispatch.
+function buildBatchPrompt(findings: readonly Finding[], request?: string, context?: PageContext): string {
+  const want = (request ?? "").trim();
+  const instruction = want
+    ? `Across this page, the user wants:\n"${want}"\n\nApply the fixes above in the source with that goal in mind, keep the design consistent, then re-verify with loupe_reverify.`
+    : "Apply the fixes above in the source, highest severity first. Make the smallest change that resolves each finding, keep the design consistent, then re-verify with loupe_reverify.";
+  return [findingsToMarkdown(findings, context), "", instruction].join("\n");
 }
 
 // The prompt an agent uses to score taste. The engine never judges taste; this
@@ -34,15 +49,8 @@ export function composeTastePrompt(packet: ElementPacket): string {
   ].join("\n");
 }
 
-// Compose the exact CLI invocation to apply a packet's fix in the project root.
-// The spawn fallback for the pull model: used when no agent session is live.
-export function composeDispatch(
-  agent: AgentName,
-  packet: ElementPacket,
-  cwd: string,
-  request?: string,
-): DispatchCommand {
-  const prompt = buildPrompt(packet, request);
+// The CLI invocation that runs a prompt headlessly in the project root, per agent.
+function composePromptCommand(agent: AgentName, prompt: string, cwd: string): DispatchCommand {
   switch (agent) {
     case "Claude Code":
       return { cmd: "claude", args: ["-p", prompt, "--permission-mode", "acceptEdits"], cwd };
@@ -53,16 +61,31 @@ export function composeDispatch(
   }
 }
 
-// Run a composed dispatch, returning its output. Resolves with ok:false rather
-// than throwing when the agent binary is not installed.
-export function runDispatch(
+// Compose the exact CLI invocation to apply a packet's fix in the project root.
+// The spawn fallback for the pull model: used when no agent session is live.
+export function composeDispatch(
   agent: AgentName,
   packet: ElementPacket,
   cwd: string,
   request?: string,
-  timeoutMs = 600000,
-): Promise<DispatchResult> {
-  const { cmd, args } = composeDispatch(agent, packet, cwd, request);
+): DispatchCommand {
+  return composePromptCommand(agent, buildPrompt(packet, request), cwd);
+}
+
+// Compose a "fix everything" dispatch from a whole page audit.
+export function composeBatchDispatch(
+  agent: AgentName,
+  findings: readonly Finding[],
+  cwd: string,
+  request?: string,
+  context?: PageContext,
+): DispatchCommand {
+  return composePromptCommand(agent, buildBatchPrompt(findings, request, context), cwd);
+}
+
+// Spawn a composed command, returning its output. Resolves with ok:false rather
+// than throwing when the agent binary is not installed.
+function runCommand({ cmd, args, cwd }: DispatchCommand, timeoutMs: number): Promise<DispatchResult> {
   return new Promise((resolve) => {
     const MAX_OUTPUT = 1_000_000;
     const child = spawn(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
@@ -89,4 +112,27 @@ export function runDispatch(
     );
     child.on("close", (code) => finish({ ok: code === 0, code, stdout, stderr }));
   });
+}
+
+// Run a composed single-element dispatch, returning its output.
+export function runDispatch(
+  agent: AgentName,
+  packet: ElementPacket,
+  cwd: string,
+  request?: string,
+  timeoutMs = 600000,
+): Promise<DispatchResult> {
+  return runCommand(composeDispatch(agent, packet, cwd, request), timeoutMs);
+}
+
+// Run a "fix everything" batch dispatch over a whole page audit.
+export function runBatchDispatch(
+  agent: AgentName,
+  findings: readonly Finding[],
+  cwd: string,
+  request?: string,
+  context?: PageContext,
+  timeoutMs = 600000,
+): Promise<DispatchResult> {
+  return runCommand(composeBatchDispatch(agent, findings, cwd, request, context), timeoutMs);
 }

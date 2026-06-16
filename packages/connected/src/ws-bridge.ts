@@ -1,7 +1,7 @@
 import { WebSocketServer, type WebSocket } from "ws";
-import { analyzeElement, analyzePage, buildPacket, scoreFindings, type ElementPacket } from "@loupe/engine";
+import { analyzeElement, analyzePage, buildPacket, scoreFindings, type ElementPacket, type Finding } from "@loupe/engine";
 import { createSelectionStore, type SelectionStore } from "./selection-store";
-import { runDispatch, type AgentName } from "./agents";
+import { runDispatch, runBatchDispatch, type AgentName } from "./agents";
 
 // WebSocket bridge for the extension's Connected mode. Shares a selection store
 // with the MCP server so the agent can pull what the browser published.
@@ -37,6 +37,9 @@ export function startBridge(
         agent?: AgentName;
         cwd?: string;
         request?: string;
+        findings?: unknown;
+        url?: string;
+        score?: number;
       };
       try {
         msg = JSON.parse(String(data));
@@ -92,6 +95,36 @@ export function startBridge(
             if (request) store.setRequest(request);
             ws.send(JSON.stringify({ type: "dispatch-status", id: msg.id, phase: "dispatching", agent }));
             void runDispatch(agent, packet as ElementPacket, cwd, request).then((result) => {
+              ws.send(
+                JSON.stringify({
+                  type: "dispatch-status",
+                  id: msg.id,
+                  phase: result.ok ? "applied" : "error",
+                  result,
+                }),
+              );
+            });
+          }
+        } else if (msg.type === "dispatch-batch") {
+          const { agent, findings, cwd } = msg;
+          if (!agent || !Array.isArray(findings) || !cwd) {
+            ws.send(
+              JSON.stringify({
+                type: "dispatch-status",
+                id: msg.id,
+                phase: "error",
+                message: "dispatch-batch needs agent, a findings array, and cwd (the project root)",
+              }),
+            );
+          } else {
+            const request = typeof msg.request === "string" && msg.request.trim() ? msg.request : undefined;
+            if (request) store.setRequest(request);
+            const context = {
+              url: typeof msg.url === "string" ? msg.url : undefined,
+              score: typeof msg.score === "number" ? msg.score : undefined,
+            };
+            ws.send(JSON.stringify({ type: "dispatch-status", id: msg.id, phase: "dispatching", agent }));
+            void runBatchDispatch(agent, findings as Finding[], cwd, request, context).then((result) => {
               ws.send(
                 JSON.stringify({
                   type: "dispatch-status",

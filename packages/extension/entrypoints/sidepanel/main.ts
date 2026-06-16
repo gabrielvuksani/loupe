@@ -1,3 +1,4 @@
+import { findingsToMarkdown } from "@loupe/engine";
 import type { ElementPacket, Finding, Score } from "@loupe/engine";
 
 const $ = (id: string): HTMLElement => document.getElementById(id) as HTMLElement;
@@ -11,10 +12,15 @@ let wsReconnect: ReturnType<typeof setTimeout> | null = null;
 let lastPacket: { packet: ElementPacket; markdown: string } | null = null;
 let lastSelectorScore: { selector: string; score: number } | null = null;
 let lastPageScore: number | null = null;
+let lastAudit: { findings: Finding[]; score: Score } | null = null;
 
 async function activeTabId(): Promise<number | undefined> {
   const [t] = await browser.tabs.query({ active: true, currentWindow: true });
   return t?.id;
+}
+async function activeTabUrl(): Promise<string | undefined> {
+  const [t] = await browser.tabs.query({ active: true, currentWindow: true });
+  return t?.url;
 }
 async function toTab(msg: unknown): Promise<void> {
   const id = await activeTabId();
@@ -164,6 +170,7 @@ function scoreCard(p: number, label: string, detail: string): string {
 }
 
 function renderAudit(findings: Finding[], score: Score): void {
+  lastAudit = { findings, score };
   // Re-scanning the same page with a different score is the re-verify climb.
   const climb =
     lastPageScore !== null && lastPageScore !== score.overall ? ` · ${lastPageScore} → ${score.overall}` : "";
@@ -173,10 +180,17 @@ function renderAudit(findings: Finding[], score: Score): void {
     "Page health",
     `${findings.length} finding(s) · taste ${score.byCategory.taste} · a11y ${score.byCategory.a11y}${climb}`,
   );
-  $("findings").innerHTML = findings.length
-    ? findings.map(findingHtml).join("")
-    : `<div class="empty">No findings. The page passes loupe's deterministic checks.</div>`;
+  const batchBtn = findings.length
+    ? `<div class="finding"><div class="row"><button class="act gold" id="fixall" style="flex:1">${
+        mode === "connected" ? "Fix all " + findings.length + " with " + escapeHtml(agent) : "Copy all findings"
+      }</button></div></div>`
+    : "";
+  $("findings").innerHTML =
+    (findings.length
+      ? findings.map(findingHtml).join("")
+      : `<div class="empty">No findings. The page passes loupe's deterministic checks.</div>`) + batchBtn;
   wireFindingActions();
+  document.getElementById("fixall")?.addEventListener("click", () => void doBatchDispatch());
 }
 
 function renderPacket(packet: ElementPacket, markdown: string): void {
@@ -224,6 +238,44 @@ function doDispatch(): void {
     void navigator.clipboard
       .writeText(lastPacket.markdown)
       .then(() => toast("Packet copied. Paste into your agent"))
+      .catch(() => toast("Copy failed"));
+  }
+}
+
+async function doBatchDispatch(): Promise<void> {
+  if (!lastAudit || !lastAudit.findings.length) return;
+  if (mode === "connected") {
+    const cwd = projectRoot();
+    if (!cwd) {
+      toast("Set the project root first");
+      return;
+    }
+    if (ws?.readyState === WebSocket.OPEN) {
+      const request = ($("request") as HTMLTextAreaElement).value.trim();
+      const url = await activeTabUrl();
+      ws.send(
+        JSON.stringify({
+          type: "dispatch-batch",
+          agent,
+          findings: lastAudit.findings,
+          cwd,
+          request,
+          url,
+          score: lastAudit.score.overall,
+        }),
+      );
+      toast(
+        request
+          ? `Fixing all with ${agent} and your request`
+          : `Fixing all ${lastAudit.findings.length} with ${agent}`,
+      );
+    } else {
+      toast("Engine offline. Run: loupe serve");
+    }
+  } else {
+    void navigator.clipboard
+      .writeText(findingsToMarkdown(lastAudit.findings, { score: lastAudit.score.overall }))
+      .then(() => toast("All findings copied. Paste into your agent"))
       .catch(() => toast("Copy failed"));
   }
 }
