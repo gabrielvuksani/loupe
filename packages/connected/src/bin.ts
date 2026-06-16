@@ -3,6 +3,7 @@ import { runMcp } from "./mcp-server";
 import { startBridge } from "./ws-bridge";
 import { startHttpMcp, DEFAULT_HTTP_PORT } from "./http-mcp";
 import { createSelectionStore } from "./selection-store";
+import { installExtension } from "./extension-install";
 
 const mode = process.argv[2];
 const store = createSelectionStore();
@@ -42,6 +43,22 @@ if (mode === "--bridge") {
   // so an agent pulls exactly what the Lens selected. Run once, attach many.
   launchBridge();
   launchHttpMcp();
+} else if (mode === "extension") {
+  // Unpack the bundled Lens to a folder the user loads in Chrome, so the
+  // extension is one `npx loupe-cli extension` away with no repo clone or build.
+  const i = process.argv.indexOf("--dir");
+  const target = i > -1 && process.argv[i + 1] ? process.argv[i + 1]! : "loupe-extension";
+  const result = installExtension(target);
+  if (!result.ok) {
+    console.error(result.message);
+    process.exit(1);
+  }
+  console.log(`\nLoupe extension written to:\n  ${result.dir}\n`);
+  console.log("Load it in Chrome:");
+  console.log("  1. Open chrome://extensions");
+  console.log("  2. Turn on Developer mode (top right)");
+  console.log("  3. Click 'Load unpacked' and select the folder above");
+  console.log("  4. Click the Loupe icon to open the side panel\n");
 } else {
   // Back-compat bare invocation: speak stdio MCP for `... add --transport stdio`.
   runMcp(store).catch((e: unknown) => {

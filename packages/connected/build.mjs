@@ -1,5 +1,7 @@
 import { build } from "esbuild";
-import { readFileSync } from "node:fs";
+import { readFileSync, cpSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 // Bundle the CLI into one self-contained dist/bin.js. The workspace engine is
 // inlined (it ships as TypeScript source, so a published package cannot resolve
@@ -21,3 +23,14 @@ await build({
   external,
   logLevel: "info",
 });
+
+// Bundle the built Lens next to the CLI so `loupe-cli extension` can hand it to
+// the user with no repo clone. Build the workspace extension, then copy its MV3
+// output into dist/extension (shipped via the package's `files` allowlist).
+const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
+const extSrc = fileURLToPath(new URL("../extension/.output/chrome-mv3", import.meta.url));
+const extDest = fileURLToPath(new URL("./dist/extension", import.meta.url));
+execFileSync("pnpm", ["--filter", "@loupe/extension", "build"], { cwd: repoRoot, stdio: "inherit" });
+rmSync(extDest, { recursive: true, force: true });
+cpSync(extSrc, extDest, { recursive: true });
+console.log(`bundled extension -> dist/extension`);

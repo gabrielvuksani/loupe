@@ -1,6 +1,6 @@
 {
   "name": "loupe-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "loupe: deterministic design and accessibility detection with a real-browser render loop, exposed as an MCP server and WebSocket bridge for your CLI agent.",
   "keywords": ["design", "accessibility", "a11y", "mcp", "playwright", "lighthouse", "axe", "design-qa", "lens"],

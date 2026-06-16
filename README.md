@@ -120,11 +120,13 @@ A zero-false-positive guard test runs on every rule, because a linter that cries
 
 You need Node 22 or newer.
 
-Until the Chrome Web Store listing is live, load the Lens unpacked:
+Until the Chrome Web Store listing is live, get the Lens with one command, no clone or build:
 
-1. `pnpm install && pnpm --filter @loupe/extension build`
-2. Open `chrome://extensions`, turn on Developer mode, click **Load unpacked**, and pick `packages/extension/.output/chrome-mv3`.
-3. Click the Loupe icon to open the side panel. **Standalone** mode works right away: inspect an element for a verdict and a fix, or scan the page.
+```
+npx loupe-cli extension     # writes ./loupe-extension
+```
+
+Then in Chrome: open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and pick the `loupe-extension` folder it just wrote. Click the Loupe icon to open the side panel. **Standalone** mode works right away: inspect an element for a verdict and a fix, or scan the page.
 
 For the agent loop (**Connected** mode), run the daemon from anywhere:
 
