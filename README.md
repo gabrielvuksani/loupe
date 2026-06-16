@@ -110,7 +110,7 @@ Deterministic, in the engine:
 - **Focus.** Controls with no visible focus ring under keyboard navigation, tested with real Tab presses so a correct `:focus-visible` ring passes.
 - **Responsive.** Horizontal overflow at phone, tablet, and desktop widths, naming the elements that spill past the edge.
 - **Cross-browser.** Used CSS properties checked against your browserslist targets.
-- **Design system.** Drop a `loupe.tokens.json` in your repo and any font size, color, or spacing off your authored scale is flagged, with the nearest token as the fix.
+- **Design system.** loupe reads your tokens from a `loupe.tokens.json` or straight from your CSS variables (Tailwind v4 too), then flags any font size, color, spacing, or font family that drifts off them, with the nearest token as the fix.
 
 Plus axe-core for accessibility in Standalone, and Lighthouse scores in Connected. The closed loop also gives you a pixel-level before/after visual delta on re-verify.
 
