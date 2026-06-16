@@ -10,8 +10,10 @@
     "url": "git+https://github.com/gabrielvuksani/loupe.git",
     "directory": "packages/connected"
   },
+  "license": "MIT",
   "bin": {
     "loupe": "./dist/bin.js",
+    "loupe-cli": "./dist/bin.js",
     "loupe-connected": "./dist/bin.js"
   },
   "files": ["dist"],
