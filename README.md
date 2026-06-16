@@ -107,6 +107,7 @@ Deterministic, in the engine:
 - **Color vision.** Color pairs that look distinct to you but collapse under red-green or blue-yellow color blindness, with a page overlay to see it for yourself.
 - **Semantics.** A generic element wearing an interactive role that should be the real tag.
 - **Keyboard.** A positive tabindex that forces a brittle manual tab order instead of the natural one.
+- **Focus.** Controls with no visible focus ring under keyboard navigation, tested with real Tab presses so a correct `:focus-visible` ring passes.
 - **Responsive.** Horizontal overflow at phone, tablet, and desktop widths, naming the elements that spill past the edge.
 - **Cross-browser.** Used CSS properties checked against your browserslist targets.
 - **Design system.** Drop a `loupe.tokens.json` in your repo and any font size or color off your authored scale is flagged, with the nearest token as the fix.
