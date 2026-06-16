@@ -36,7 +36,7 @@ under the old name on purpose so the history stays linked).
 
 ## Run / build / test
 - `pnpm install`
-- `pnpm test` (104 unit, fast)
+- `pnpm test` (106 unit, fast)
 - `pnpm test:integration` (real browser; 4 pass, gated suites need flags below)
 - `pnpm --filter @loupe/extension build`, then load `.output/chrome-mv3` unpacked
 - `pnpm --filter loupe-cli serve` (or `node packages/connected/dist/bin.js serve` after build)
