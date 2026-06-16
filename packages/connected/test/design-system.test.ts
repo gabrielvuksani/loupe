@@ -13,6 +13,7 @@ describe("loadDesignSystem", () => {
     expect(sys?.fontSizes).toContain(16);
     expect(sys?.colors).toContain("#2563eb");
     expect(sys?.spacing).toContain(8);
+    expect(sys?.fontFamilies).toContain("Inter");
   });
 
   it("returns null when no tokens file is present", () => {

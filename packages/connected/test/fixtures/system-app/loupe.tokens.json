@@ -1,5 +1,6 @@
 {
   "fontSizes": [16, 24, 40],
   "colors": ["#111827", "#2563eb", "#ffffff"],
-  "spacing": [4, 8, 16, 24, 32]
+  "spacing": [4, 8, 16, 24, 32],
+  "fontFamilies": ["Inter", "Georgia"]
 }

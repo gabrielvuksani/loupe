@@ -12,8 +12,15 @@ const SPACING_TOL = 0.5; // px rounding tolerance for spacing
 export interface DesignSystem {
   fontSizes?: number[]; // px
   colors?: string[]; // any CSS color strings
-  spacing?: number[]; // px (reserved for a future spacing rule)
+  spacing?: number[]; // px
+  fontFamilies?: string[]; // authored font families (first name of each stack)
 }
+
+const GENERIC_FAMILIES = new Set([
+  "sans-serif", "serif", "monospace", "system-ui", "ui-sans-serif", "ui-serif",
+  "ui-monospace", "ui-rounded", "cursive", "fantasy", "inherit", "initial", "unset",
+]);
+const normalizeFamily = (f: string): string => f.trim().replace(/^["']|["']$/g, "").toLowerCase();
 
 function nearest(values: readonly number[], x: number): number {
   return values.reduce((best, v) => (Math.abs(v - x) < Math.abs(best - x) ? v : best), values[0]!);
@@ -126,15 +133,18 @@ export function mergeDesignSystems(...systems: DesignSystem[]): DesignSystem {
   const colors = new Set<string>();
   const fontSizes = new Set<number>();
   const spacing = new Set<number>();
+  const fontFamilies = new Set<string>();
   for (const s of systems) {
     for (const c of s.colors ?? []) colors.add(c);
     for (const f of s.fontSizes ?? []) fontSizes.add(f);
     for (const sp of s.spacing ?? []) spacing.add(sp);
+    for (const ff of s.fontFamilies ?? []) fontFamilies.add(ff);
   }
   const out: DesignSystem = {};
   if (colors.size) out.colors = [...colors];
   if (fontSizes.size) out.fontSizes = [...fontSizes];
   if (spacing.size) out.spacing = [...spacing];
+  if (fontFamilies.size) out.fontFamilies = [...fontFamilies];
   return out;
 }
 
@@ -143,20 +153,40 @@ export function mergeDesignSystems(...systems: DesignSystem[]): DesignSystem {
 // margin are not in the element snapshot) and complements the universal
 // spacing-scale rule, which only knows a 4px grid, not the project's own steps.
 export function systemPageFindings(page: PageSnapshot, system: DesignSystem): Finding[] {
-  if (!system.spacing?.length) return [];
-  const scale = system.spacing;
-  const offScale = [...new Set(page.spacings)]
-    .filter((s) => s > 0 && !scale.some((t) => Math.abs(t - s) <= SPACING_TOL))
-    .sort((a, b) => a - b);
-  if (!offScale.length) return [];
-  const named = offScale.slice(0, 6).map((s) => `${s}px`).join(", ");
-  return [
-    {
-      ruleId: "system-spacing",
-      category: "taste",
-      severity: "low",
-      selector: ":root",
-      message: `Spacing ${named} ${offScale.length === 1 ? "is" : "are"} off your spacing scale (${scale.join(", ")}). Snap to the nearest authored step.`,
-    },
-  ];
+  const findings: Finding[] = [];
+
+  if (system.spacing?.length) {
+    const scale = system.spacing;
+    const offScale = [...new Set(page.spacings)]
+      .filter((s) => s > 0 && !scale.some((t) => Math.abs(t - s) <= SPACING_TOL))
+      .sort((a, b) => a - b);
+    if (offScale.length) {
+      const named = offScale.slice(0, 6).map((s) => `${s}px`).join(", ");
+      findings.push({
+        ruleId: "system-spacing",
+        category: "taste",
+        severity: "low",
+        selector: ":root",
+        message: `Spacing ${named} ${offScale.length === 1 ? "is" : "are"} off your spacing scale (${scale.join(", ")}). Snap to the nearest authored step.`,
+      });
+    }
+  }
+
+  if (system.fontFamilies?.length) {
+    const allowed = new Set(system.fontFamilies.map(normalizeFamily));
+    const off = [...new Set(page.fontFamilies)].filter(
+      (f) => f && !GENERIC_FAMILIES.has(normalizeFamily(f)) && !allowed.has(normalizeFamily(f)),
+    );
+    if (off.length) {
+      findings.push({
+        ruleId: "system-font-family",
+        category: "taste",
+        severity: "low",
+        selector: ":root",
+        message: `Font ${off.length === 1 ? "family" : "families"} ${off.join(", ")} ${off.length === 1 ? "is" : "are"} not in your authored set (${system.fontFamilies.join(", ")}).`,
+      });
+    }
+  }
+
+  return findings;
 }

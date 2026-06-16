@@ -28,6 +28,10 @@ export function loadDesignSystem(root: string): DesignSystem | null {
   if (colors.length) system.colors = colors;
   const spacing = nums(r["spacing"]);
   if (spacing.length) system.spacing = spacing;
+  const fontFamilies = strs(r["fontFamilies"]);
+  if (fontFamilies.length) system.fontFamilies = fontFamilies;
 
-  return system.fontSizes || system.colors || system.spacing ? system : null;
+  return system.fontSizes || system.colors || system.spacing || system.fontFamilies
+    ? system
+    : null;
 }

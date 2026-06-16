@@ -75,6 +75,43 @@ describe("systemPageFindings: spacing conformance to the authored scale", () => 
   });
 });
 
+describe("systemPageFindings: font-family conformance to the authored set", () => {
+  const base: PageSnapshot = {
+    fontFamilies: [],
+    fontSizesPx: [],
+    fontWeights: [],
+    textColors: [],
+    spacings: [],
+  };
+  const sys: DesignSystem = { fontFamilies: ["Inter", "Fraunces"] };
+
+  it("flags a font family not in the authored set", () => {
+    const f = systemPageFindings({ ...base, fontFamilies: ["Inter", "Georgia"] }, sys).find(
+      (x) => x.ruleId === "system-font-family",
+    );
+    expect(f).toBeDefined();
+    expect(f?.message).toMatch(/Georgia/);
+  });
+
+  it("does not flag when every family is authored, case-insensitively", () => {
+    const findings = systemPageFindings({ ...base, fontFamilies: ["inter", "Fraunces"] }, sys);
+    expect(findings.find((x) => x.ruleId === "system-font-family")).toBeUndefined();
+  });
+
+  it("never flags generic families like system-ui or sans-serif", () => {
+    const findings = systemPageFindings(
+      { ...base, fontFamilies: ["Inter", "system-ui", "sans-serif"] },
+      sys,
+    );
+    expect(findings.find((x) => x.ruleId === "system-font-family")).toBeUndefined();
+  });
+
+  it("returns nothing when no font-family tokens are declared", () => {
+    const findings = systemPageFindings({ ...base, fontFamilies: ["Georgia"] }, {});
+    expect(findings.find((x) => x.ruleId === "system-font-family")).toBeUndefined();
+  });
+});
+
 describe("tokensFromCss: discover tokens from CSS custom properties", () => {
   const css = `:root {
     --color-primary: #2563eb;
