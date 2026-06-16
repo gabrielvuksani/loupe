@@ -21,13 +21,20 @@ v0 is built and green. A 3-package pnpm monorepo on branch feat/goldeye. Read RE
 - extension: entrypoints/{content,background}.ts, entrypoints/sidepanel/{index.html,main.ts}
 - Lens design reference (gitignored): prototypes/03-lens-extension.html
 
-## Next, in priority order
-1. Polish the Lens UI to match the prototype one-gesture feel: an on-page inspector popover with the element verdict and dispatch in place, not only the side panel. Reference: prototypes/03-lens-extension.html.
-2. Wire the closed loop. Connected mode sends the element packet today; the apply plus re-verify round trip to a live CLI agent (via a PostToolUse hook) is not wired yet.
-3. More engine rules, each test-first, keeping the zero-false-positive guard green: spacing rhythm, accent-color count, semantic-tag vs visual-role, full axe-core in standalone.
-4. Upgrade the contrast fix to culori/OKLCH and add APCA as a taste signal. Tests assert behavior, so they stay green through the swap.
-5. Cross-browser standalone rule via @mdn/browser-compat-data + browserslist. Page rules via @projectwallace/css-analyzer. Re-verify diffs via pixelmatch.
-6. The Conductor prototype: the user rejected its design. Rebuild it later as another face on the engine.
+## Next
+The full autonomous plan with acceptance criteria is in NEXT_SESSION.md. It closes
+every gap from the last session in priority order: the closed loop, live agent
+dispatch, the on-page popover, the expanded packet with a screenshot, axe in
+standalone, the adopted libraries, the full taste rule set, and the Candidis merge.
+
+## Known gaps in this build (be honest, do not reclaim these as done)
+- The closed loop is not wired. The engine detects and computes fixes; nothing applies or re-verifies.
+- Connected "Send to agent" is a no-op. The WS bridge ignores the dispatch message.
+- There is no on-page popover. Results go to the side panel only, so the chosen one-gesture flow is unmet.
+- The packet has no screenshot, outerHTML, a11y node, or source location.
+- Standalone does not run axe-core. axe runs only in the connected Playwright path.
+- culori, browser-compat-data, projectwallace, pixelmatch, APCA, element-source are not installed or used.
+- Two taste rules exist (font count, type scale). The full Refactoring-UI set and the AI taste score are not built.
 
 ## Gotchas
 - Extension service workers need headed Chromium in Playwright tests; headless does not load them.
