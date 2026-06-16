@@ -91,6 +91,91 @@ describe("analyzeElement: target size", () => {
   });
 });
 
+describe("analyzeElement: line length", () => {
+  it("flags an over-wide line of body text whose estimated CPL exceeds 75", () => {
+    // 700px / (16px * 0.5) = ~87 chars per line, well past the comfortable 75.
+    const findings = analyzeElement({
+      selector: "p.lede",
+      tag: "p",
+      text: "This is a long paragraph of body copy that runs far past a comfortable measure.",
+      styles: { fontSize: "16px" },
+      box: { width: 700, height: 96 },
+    });
+
+    const ll = findings.find((f) => f.ruleId === "line-length");
+    expect(ll).toBeDefined();
+    expect(ll?.category).toBe("taste");
+    expect(ll?.severity).toBe("low");
+    expect(ll?.message).toMatch(/45.*75|75.*char/i);
+  });
+
+  it("does not flag a comfortable measure around 65 characters", () => {
+    // 520px / (16px * 0.5) = 65 chars per line, inside the comfortable band.
+    const findings = analyzeElement({
+      selector: "p.body",
+      tag: "p",
+      text: "This paragraph sits at a comfortable reading measure for body copy.",
+      styles: { fontSize: "16px" },
+      box: { width: 520, height: 72 },
+    });
+    expect(findings.find((f) => f.ruleId === "line-length")).toBeUndefined();
+  });
+
+  it("ignores short labels even when the element box is wide", () => {
+    // A wide button with two characters must never be a line-length problem.
+    const findings = analyzeElement({
+      selector: "button.cta",
+      tag: "button",
+      text: "Go",
+      styles: { fontSize: "16px" },
+      box: { width: 700, height: 48 },
+    });
+    expect(findings.find((f) => f.ruleId === "line-length")).toBeUndefined();
+  });
+});
+
+describe("analyzeElement: semantic tag", () => {
+  it("flags a div that behaves as a button via its accessibility role", () => {
+    const findings = analyzeElement({
+      selector: "div.fake-btn",
+      tag: "div",
+      text: "Submit",
+      styles: {},
+      a11y: { role: "button", name: "Submit" },
+    });
+
+    const st = findings.find((f) => f.ruleId === "semantic-tag");
+    expect(st).toBeDefined();
+    expect(st?.category).toBe("a11y");
+    expect(st?.severity).toBe("medium");
+    expect(st?.message).toMatch(/button/i);
+  });
+
+  it("flags a span acting as a link", () => {
+    const findings = analyzeElement({
+      selector: "span.nav",
+      tag: "span",
+      text: "Pricing",
+      styles: {},
+      a11y: { role: "link", name: "Pricing" },
+    });
+    const st = findings.find((f) => f.ruleId === "semantic-tag");
+    expect(st).toBeDefined();
+    expect(st?.message).toMatch(/link|a /i);
+  });
+
+  it("does not flag a real button element that carries the button role", () => {
+    const findings = analyzeElement({
+      selector: "button.real",
+      tag: "button",
+      text: "Submit",
+      styles: {},
+      a11y: { role: "button", name: "Submit" },
+    });
+    expect(findings.find((f) => f.ruleId === "semantic-tag")).toBeUndefined();
+  });
+});
+
 describe("analyzeElement: no false positives", () => {
   it("returns no findings for a compliant element", () => {
     const findings = analyzeElement({

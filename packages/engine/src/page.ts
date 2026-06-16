@@ -5,6 +5,7 @@ const MAX_FONT_FAMILIES = 2;
 const MAX_FONT_WEIGHTS = 3;
 const SPACING_GRID = 4; // Refactoring UI: spacing lives on a consistent scale.
 const MIN_SPACING_SAMPLES = 6;
+const MAX_TEXT_COLORS = 8; // Refactoring UI: a few greys plus an accent, not a sprawl.
 
 // Page-level taste rules: bounded variety and a sane type scale.
 export function analyzePage(snapshot: PageSnapshot): Finding[] {
@@ -29,6 +30,18 @@ export function analyzePage(snapshot: PageSnapshot): Finding[] {
       severity: "low",
       selector: ":root",
       message: `${weights.length} font weights in use. Keep it to ${MAX_FONT_WEIGHTS}.`,
+    });
+  }
+
+  // color-count: too many text colors reads as an unplanned palette.
+  const colors = distinct(snapshot.textColors);
+  if (colors.length > MAX_TEXT_COLORS) {
+    findings.push({
+      ruleId: "color-count",
+      category: "taste",
+      severity: "low",
+      selector: ":root",
+      message: `${colors.length} distinct text colors in use. Keep to ${MAX_TEXT_COLORS} or fewer: a few greys plus an accent.`,
     });
   }
 

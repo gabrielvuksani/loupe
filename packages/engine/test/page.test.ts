@@ -47,6 +47,43 @@ describe("analyzePage: typography and palette taste rules", () => {
     expect(findings.find((x) => x.ruleId === "spacing-scale")).toBeUndefined();
   });
 
+  it("flags a sprawling text palette of more than 8 distinct colors", () => {
+    const findings = analyzePage({
+      ...clean,
+      textColors: [
+        "#111111",
+        "#222222",
+        "#333333",
+        "#444444",
+        "#555555",
+        "#666666",
+        "#777777",
+        "#888888",
+        "#999999",
+      ],
+    });
+    const f = findings.find((x) => x.ruleId === "color-count");
+    expect(f).toBeDefined();
+    expect(f?.category).toBe("taste");
+    expect(f?.severity).toBe("low");
+    expect(f?.message).toMatch(/color|palette/i);
+  });
+
+  it("does not flag a restrained text palette of 8 or fewer colors", () => {
+    const findings = analyzePage({
+      ...clean,
+      textColors: ["#111", "#222", "#333", "#444", "#555", "#666", "#777", "#888"],
+    });
+    expect(findings.find((x) => x.ruleId === "color-count")).toBeUndefined();
+  });
+
+  it("counts repeated text colors once before judging palette size", () => {
+    // Many samples, but only three distinct colors: not sprawl.
+    const repeated = Array.from({ length: 30 }, (_, i) => ["#111", "#222", "#333"][i % 3]!);
+    const findings = analyzePage({ ...clean, textColors: repeated });
+    expect(findings.find((x) => x.ruleId === "color-count")).toBeUndefined();
+  });
+
   it("returns no findings for a page with a clean, consistent system", () => {
     expect(analyzePage(clean)).toEqual([]);
   });

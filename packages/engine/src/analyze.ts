@@ -5,6 +5,11 @@ const WCAG_AA_NORMAL = 4.5;
 const WCAG_AA_LARGE = 3;
 const MIN_TARGET_PX = 44;
 const INTERACTIVE_TAGS = new Set(["button", "a", "input", "select", "textarea"]);
+const MAX_CPL = 75; // Refactoring UI: comfortable line length is 45 to 75 characters.
+const MIN_WRAPPING_TEXT = 60; // Below this the text cannot fill a wide line, so skip.
+const AVG_GLYPH_RATIO = 0.5; // Mean glyph advance approximated as half the font size.
+const GENERIC_TAGS = new Set(["div", "span"]);
+const SEMANTIC_FOR_ROLE: Record<string, string> = { button: "<button>", link: "<a>" };
 
 // Element-level rules: contrast and target size.
 export function analyzeElement(snapshot: ElementSnapshot): Finding[] {
@@ -62,6 +67,39 @@ export function analyzeElement(snapshot: ElementSnapshot): Finding[] {
           rationale: `Grow the target to at least ${MIN_TARGET_PX}px so it's reliably tappable.`,
         },
       });
+    }
+  }
+
+  // semantic-tag: a generic element wearing an interactive role should be the real element.
+  const role = snapshot.a11y?.role;
+  if (role && GENERIC_TAGS.has(snapshot.tag)) {
+    const semantic = SEMANTIC_FOR_ROLE[role];
+    if (semantic) {
+      findings.push({
+        ruleId: "semantic-tag",
+        category: "a11y",
+        severity: "medium",
+        selector: snapshot.selector,
+        message: `<${snapshot.tag}> exposes the ${role} role. Use a real ${semantic} element for built-in keyboard and focus behavior.`,
+      });
+    }
+  }
+
+  // line-length: body text past ~75 characters per line is tiring to read.
+  if (snapshot.text && snapshot.text.length >= MIN_WRAPPING_TEXT && snapshot.box) {
+    const px = Number.parseFloat(snapshot.styles.fontSize ?? "");
+    const width = snapshot.box.width;
+    if (Number.isFinite(px) && px > 0 && width > 0) {
+      const cpl = width / (px * AVG_GLYPH_RATIO);
+      if (cpl > MAX_CPL) {
+        findings.push({
+          ruleId: "line-length",
+          category: "taste",
+          severity: "low",
+          selector: snapshot.selector,
+          message: `Line length is about ${Math.round(cpl)} characters, past the comfortable 45 to 75 range. Narrow the measure.`,
+        });
+      }
     }
   }
 
