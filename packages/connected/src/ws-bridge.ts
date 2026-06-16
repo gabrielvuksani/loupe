@@ -1,7 +1,7 @@
 import { WebSocketServer, type WebSocket } from "ws";
 import { analyzeElement, analyzePage, buildPacket, scoreFindings, type ElementPacket, type Finding } from "@loupe/engine";
 import { createSelectionStore, type SelectionStore } from "./selection-store";
-import { runDispatch, runBatchDispatch, type AgentName } from "./agents";
+import { runDispatch, runBatchDispatch, gitDiffSummary, type AgentName } from "./agents";
 
 // Forward an agent's live output to the extension as it runs, capped per
 // dispatch so a chatty agent cannot flood the socket. The full output still
@@ -112,7 +112,7 @@ export function startBridge(
             const request = typeof msg.request === "string" && msg.request.trim() ? msg.request : undefined;
             if (request) store.setRequest(request);
             ws.send(JSON.stringify({ type: "dispatch-status", id: msg.id, phase: "dispatching", agent }));
-            void runDispatch(agent, packet as ElementPacket, cwd, request, undefined, streamSender(ws, msg.id)).then((result) => {
+            void runDispatch(agent, packet as ElementPacket, cwd, request, undefined, streamSender(ws, msg.id)).then(async (result) => {
               ws.send(
                 JSON.stringify({
                   type: "dispatch-status",
@@ -121,6 +121,10 @@ export function startBridge(
                   result,
                 }),
               );
+              const diff = await gitDiffSummary(cwd);
+              if (diff) {
+                ws.send(JSON.stringify({ type: "dispatch-status", id: msg.id, phase: "diff", diff }));
+              }
             });
           }
         } else if (msg.type === "dispatch-batch") {
@@ -142,7 +146,7 @@ export function startBridge(
               score: typeof msg.score === "number" ? msg.score : undefined,
             };
             ws.send(JSON.stringify({ type: "dispatch-status", id: msg.id, phase: "dispatching", agent }));
-            void runBatchDispatch(agent, findings as Finding[], cwd, request, context, undefined, streamSender(ws, msg.id)).then((result) => {
+            void runBatchDispatch(agent, findings as Finding[], cwd, request, context, undefined, streamSender(ws, msg.id)).then(async (result) => {
               ws.send(
                 JSON.stringify({
                   type: "dispatch-status",
@@ -151,6 +155,10 @@ export function startBridge(
                   result,
                 }),
               );
+              const diff = await gitDiffSummary(cwd);
+              if (diff) {
+                ws.send(JSON.stringify({ type: "dispatch-status", id: msg.id, phase: "diff", diff }));
+              }
             });
           }
         } else {

@@ -145,6 +145,7 @@ function connectWs(): void {
           phase?: string;
           message?: string;
           chunk?: string;
+          diff?: string;
         };
         if (m.type === "dispatch-status") {
           if (m.phase === "dispatching") {
@@ -155,6 +156,8 @@ function connectWs(): void {
           } else if (m.phase === "applied") {
             appendLog("\n✓ applied. Re-verify to see the climb.\n");
             toast("Agent applied. Re-verify to see the climb");
+          } else if (m.phase === "diff" && m.diff) {
+            appendLog(`\nChanged files:\n${m.diff}\n`);
           } else if (m.phase === "error") {
             appendLog(`\n✕ ${m.message ?? "dispatch failed"}\n`);
             toast(m.message ?? "Dispatch failed");

@@ -150,3 +150,12 @@ export function runBatchDispatch(
 ): Promise<DispatchResult> {
   return runCommand(composeBatchDispatch(agent, findings, cwd, request, context), timeoutMs, onOutput);
 }
+
+// After an agent edits the source, summarize what changed in the working tree
+// (tracked files, with line counts) so the user sees the result of the dispatch.
+// Returns null when cwd is not a git repo, and an empty string when nothing
+// changed. Read-only: never touches the index or the tree.
+export async function gitDiffSummary(cwd: string): Promise<string | null> {
+  const res = await runCommand({ cmd: "git", args: ["diff", "--stat"], cwd }, 15000);
+  return res.ok ? res.stdout.trim() : null;
+}

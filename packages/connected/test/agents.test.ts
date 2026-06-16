@@ -1,6 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { analyzeElement, buildPacket } from "@loupe/engine";
-import { composeDispatch, composeBatchDispatch, composeTastePrompt, runCommand } from "../src/agents";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  composeDispatch,
+  composeBatchDispatch,
+  composeTastePrompt,
+  runCommand,
+  gitDiffSummary,
+} from "../src/agents";
 
 const packet = buildPacket(
   { selector: ".ghost", tag: "button", styles: { color: "rgb(174, 182, 194)", backgroundColor: "rgb(255, 255, 255)" } },
@@ -91,6 +100,15 @@ describe("runCommand: live output streaming", () => {
     );
     expect(result.ok).toBe(false);
     expect(result.code).toBe(3);
+  });
+});
+
+describe("gitDiffSummary", () => {
+  it("returns a string inside a git repo and null outside one", async () => {
+    const inRepo = await gitDiffSummary(process.cwd());
+    expect(typeof inRepo).toBe("string");
+    const notRepo = mkdtempSync(join(tmpdir(), "loupe-nogit-"));
+    expect(await gitDiffSummary(notRepo)).toBeNull();
   });
 });
 
