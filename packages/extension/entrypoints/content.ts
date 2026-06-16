@@ -14,6 +14,7 @@ import {
   type Finding,
 } from "@loupe/engine";
 import { popoverHtml } from "./lib/view";
+import { placePopover } from "./lib/position";
 import { cropRect } from "./lib/crop";
 import { axeViolationsToFindings, type AxeViolation } from "./lib/axe-findings";
 
@@ -41,8 +42,10 @@ export default defineContentScript({
     const ensureHl = (): HTMLElement => {
       if (!hl) {
         hl = document.createElement("div");
+        // No position transition: left/top/width/height are rewritten on every
+        // mousemove, so a transition makes the highlight trail the cursor.
         hl.style.cssText =
-          "position:fixed;z-index:2147483646;pointer-events:none;border:2px solid #e8b54a;border-radius:6px;box-shadow:0 0 0 1px rgba(232,181,74,.25),0 0 22px -2px rgba(232,181,74,.5);background:rgba(232,181,74,.07);transition:all .06s cubic-bezier(.4,0,.2,1);display:none;";
+          "position:fixed;z-index:2147483646;pointer-events:none;border:2px solid #e8b54a;border-radius:6px;box-shadow:0 0 0 1px rgba(232,181,74,.25),0 0 22px -2px rgba(232,181,74,.5);background:rgba(232,181,74,.07);display:none;";
         document.documentElement.appendChild(hl);
       }
       return hl;
@@ -104,11 +107,19 @@ export default defineContentScript({
       root.append(style, popBody);
       document.documentElement.appendChild(popHost);
     };
+    // Measure the rendered popover (call this after it is display:block) and let
+    // the pure placer flip it above/below and clamp it inside the viewport,
+    // instead of the old fixed 240/320 guesses that could cover the element near
+    // an edge.
     const positionPopover = (el: Element): void => {
       if (!popHost) return;
       const r = el.getBoundingClientRect();
-      const top = Math.max(8, Math.min(r.bottom + 8, window.innerHeight - 240));
-      const left = Math.max(8, Math.min(r.left, window.innerWidth - 320));
+      const pop = popHost.getBoundingClientRect();
+      const { top, left } = placePopover(
+        r,
+        { width: pop.width || 300, height: pop.height || 200 },
+        { width: window.innerWidth, height: window.innerHeight },
+      );
       popHost.style.top = `${top}px`;
       popHost.style.left = `${left}px`;
     };
@@ -121,14 +132,16 @@ export default defineContentScript({
           agent,
           climbFrom: prevScore,
         });
-      if (current) positionPopover(current.el);
       popBody?.querySelectorAll<HTMLElement>("[data-action]").forEach((b) =>
         b.addEventListener("click", (e) => {
           e.stopPropagation();
-          onAction(b.dataset["action"] ?? "");
+          onAction(b.dataset["action"] ?? "", b);
         }),
       );
       if (popHost) popHost.style.display = "block";
+      // Position only after display:block so the popover has real dimensions to
+      // measure when deciding whether to sit above or below the element.
+      if (current) positionPopover(current.el);
     };
     const hidePopover = (): void => {
       if (popHost) popHost.style.display = "none";
@@ -288,10 +301,44 @@ export default defineContentScript({
       void requestScreenshot(el);
     };
 
-    const onAction = (action: string): void => {
+    // Swap a popover button's label for a moment, then restore it. The popover's
+    // copy had no feedback, so a write that silently succeeded and one that
+    // silently failed looked identical.
+    const flashLabel = (btn: HTMLElement | undefined, label: string, ms = 1200): void => {
+      if (!btn) return;
+      const prev = btn.textContent;
+      btn.textContent = label;
+      window.setTimeout(() => {
+        btn.textContent = prev;
+      }, ms);
+    };
+    // The async clipboard API rejects from a content script when the document is
+    // not focused; a hidden textarea + execCommand still copies without focus.
+    const fallbackCopy = (text: string): boolean => {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.cssText = "position:fixed;top:-1000px;left:-1000px;opacity:0;";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        ta.remove();
+        return ok;
+      } catch {
+        return false;
+      }
+    };
+    const copyPacket = (text: string, btn?: HTMLElement): void => {
+      void navigator.clipboard.writeText(text).then(
+        () => flashLabel(btn, "Copied"),
+        () => flashLabel(btn, fallbackCopy(text) ? "Copied" : "Copy failed"),
+      );
+    };
+
+    const onAction = (action: string, btn?: HTMLElement): void => {
       if (!current) return;
       if (action === "copy") {
-        void navigator.clipboard.writeText(packetToMarkdown(current.packet)).catch(() => {});
+        copyPacket(packetToMarkdown(current.packet), btn);
       } else if (action === "send") {
         void browser.runtime.sendMessage({ type: "dispatch-current" });
       } else if (action === "preview") {
@@ -354,15 +401,48 @@ export default defineContentScript({
     };
 
     // ---------- pointer wiring ----------
+    // A click inside the open-shadow-root popover retargets to popHost at the
+    // document level, so without this guard the capture-phase handler would
+    // "select" loupe's own popover and its stopPropagation would keep the
+    // popover buttons from ever firing. The same guard keeps the highlight off
+    // our overlays.
+    const isOwnUi = (t: EventTarget | null): boolean =>
+      t === popHost || t === hl || (t instanceof Element && t.id === "loupe-cvd-defs");
     const onMove = (e: MouseEvent): void => {
       const el = e.target as Element | null;
-      if (inspecting && el && el !== hl) moveHl(el);
+      if (inspecting && el && !isOwnUi(el)) moveHl(el);
     };
     const onClick = (e: MouseEvent): void => {
       if (!inspecting) return;
+      if (isOwnUi(e.target)) return;
       e.preventDefault();
       e.stopPropagation();
       void onInspectClick(e.target as Element);
+    };
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        stopInspecting();
+      }
+    };
+    const startInspecting = (): void => {
+      if (inspecting) return;
+      inspecting = true;
+      document.addEventListener("mousemove", onMove, true);
+      document.addEventListener("click", onClick, true);
+      document.addEventListener("keydown", onKey, true);
+    };
+    // fromPanel is true when the side panel toggled inspect off (it already
+    // updated its own button); Escape in the page leaves it false, so we echo
+    // inspect-stopped back to resync the panel's Inspect button.
+    const stopInspecting = (fromPanel = false): void => {
+      inspecting = false;
+      document.removeEventListener("mousemove", onMove, true);
+      document.removeEventListener("click", onClick, true);
+      document.removeEventListener("keydown", onKey, true);
+      hideHl();
+      hidePopover();
+      if (!fromPanel) void browser.runtime.sendMessage({ type: "inspect-stopped" });
     };
 
     browser.runtime.onMessage.addListener((message: unknown) => {
@@ -377,16 +457,8 @@ export default defineContentScript({
         cvd?: string;
       };
       if (msg.type === "set-inspect") {
-        inspecting = Boolean(msg.value);
-        if (inspecting) {
-          document.addEventListener("mousemove", onMove, true);
-          document.addEventListener("click", onClick, true);
-        } else {
-          document.removeEventListener("mousemove", onMove, true);
-          document.removeEventListener("click", onClick, true);
-          hideHl();
-          hidePopover();
-        }
+        if (msg.value) startInspecting();
+        else stopInspecting(true);
       } else if (msg.type === "set-mode") {
         if (msg.mode) mode = msg.mode;
         if (msg.agent) agent = msg.agent;

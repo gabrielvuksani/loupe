@@ -98,6 +98,10 @@ function setMode(m: Mode): void {
       ? `<b>Full loop.</b> Element packets stream to the loupe engine and your CLI agent (${escapeHtml(agent)}) to apply, then re-verify.`
       : `<b>Local engine.</b> Deterministic checks run in your browser: contrast, target size, type scale, palette. $0, offline, nothing leaves the tab.`;
   const showRoot = m === "connected";
+  // The agent picker only matters in Connected mode; Standalone copies to the
+  // clipboard and never spawns an agent, so it hides with the dispatch fields.
+  $("agentLabel").style.display = showRoot ? "block" : "none";
+  $("agent").style.display = showRoot ? "grid" : "none";
   $("rootLabel").style.display = showRoot ? "block" : "none";
   $("root").style.display = showRoot ? "block" : "none";
   $("token").style.display = showRoot ? "block" : "none";
@@ -180,13 +184,23 @@ function connectWs(): void {
     /* ignore */
   }
 }
+// The CLI loupe spawns for each agent label, surfaced so picking one in
+// Connected mode says what will actually run instead of sitting there unexplained.
+const AGENT_CMD: Record<string, string> = {
+  "Claude Code": "claude",
+  Codex: "codex",
+  OpenCode: "opencode",
+};
 function setAgent(name: string): void {
   agent = name;
   document.querySelectorAll("#agent .pill").forEach((b) =>
     b.classList.toggle("on", (b as HTMLElement).dataset["agent"] === name),
   );
   pushMode();
-  if (mode === "connected") setMode("connected");
+  if (mode === "connected") {
+    setMode("connected");
+    toast(`loupe will run ${AGENT_CMD[name] ?? name} in your project root`);
+  }
 }
 
 // ---------- render ----------
@@ -383,5 +397,10 @@ browser.runtime.onMessage.addListener((message: unknown) => {
     renderAudit(msg.findings, msg.score);
   } else if (msg.type === "dispatch-current") {
     doDispatch();
+  } else if (msg.type === "inspect-stopped") {
+    // The page stopped inspecting (Escape); resync the Inspect toggle.
+    inspecting = false;
+    $("inspect").classList.remove("on");
+    $("inspect").textContent = "Inspect element";
   }
 });
