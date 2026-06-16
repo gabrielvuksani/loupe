@@ -56,4 +56,10 @@ describe("popoverHtml", () => {
     expect(html).not.toContain("<img");
     expect(html).not.toContain("javascript:");
   });
+
+  it("shows the before-to-after score climb after a re-verify", () => {
+    const html = popoverHtml(packet, { connected: false, agent: "Codex", climbFrom: 72 });
+    expect(html).toMatch(/72\s*&rarr;/);
+    expect(html).toContain(`${packet.score}/100`);
+  });
 });

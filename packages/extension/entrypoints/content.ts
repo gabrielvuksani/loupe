@@ -63,6 +63,7 @@ export default defineContentScript({
         background: rgba(232,181,74,.12); padding: 2px 6px; border-radius: 5px; flex: 1;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .ge-score { font-weight: 700; }
+      .ge-climb { color: #5fd0a8; }
       .ge-shot { display: block; width: 100%; max-height: 150px; object-fit: contain;
         margin: 9px 0 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.25); }
       .ge-text { color: #aab2c0; font-size: 11.5px; margin: 7px 0; }
@@ -100,10 +101,15 @@ export default defineContentScript({
       popHost.style.top = `${top}px`;
       popHost.style.left = `${left}px`;
     };
-    const renderPopover = (packet: ElementPacket): void => {
+    const renderPopover = (packet: ElementPacket, prevScore?: number): void => {
       ensurePopover();
       // popoverHtml escapes every interpolated value, so this is not an injection sink.
-      if (popBody) popBody.innerHTML = popoverHtml(packet, { connected: mode === "connected", agent });
+      if (popBody)
+        popBody.innerHTML = popoverHtml(packet, {
+          connected: mode === "connected",
+          agent,
+          climbFrom: prevScore,
+        });
       if (current) positionPopover(current.el);
       popBody?.querySelectorAll<HTMLElement>("[data-action]").forEach((b) =>
         b.addEventListener("click", (e) => {
@@ -258,12 +264,13 @@ export default defineContentScript({
     // re-judge, and show the climb in the popover and panel. No agent needed.
     const inPageReverify = (): void => {
       if (!current) return;
+      const before = current.packet.score;
       const el = current.el as HTMLElement;
       for (const fx of current.packet.fixes) el.style.setProperty(fx.property, fx.to);
       const snap = snapshotOf(el);
       const packet = buildPacket(snap, analyzeElement(snap));
       current = { el, packet };
-      renderPopover(packet);
+      renderPopover(packet, before);
       publish(packet);
     };
 

@@ -19,6 +19,7 @@ export function findingRow(f: Finding): string {
 export interface PopoverOpts {
   connected: boolean;
   agent: string;
+  climbFrom?: number;
 }
 
 // Only render a same-origin data-image URL. The prefix check rejects javascript:
@@ -39,10 +40,15 @@ export function popoverHtml(packet: ElementPacket, opts: PopoverOpts): string {
     : "";
   const text = packet.text ? `<div class="ge-text">"${escapeHtml(packet.text)}"</div>` : "";
   const shot = screenshotImg(packet.screenshot);
+  // After a re-verify, show the before to after climb: the loop's payoff.
+  const score =
+    typeof opts.climbFrom === "number" && opts.climbFrom !== packet.score
+      ? `<span class="ge-score ge-climb">${opts.climbFrom} &rarr; ${packet.score}/100</span>`
+      : `<span class="ge-score">${packet.score}/100</span>`;
   return `<div class="ge-head">
       <span class="ge-tag">${escapeHtml(packet.tag)}</span>
       <span class="ge-sel">${escapeHtml(packet.selector)}</span>
-      <span class="ge-score">${packet.score}/100</span>
+      ${score}
     </div>
     ${shot}
     ${text}
