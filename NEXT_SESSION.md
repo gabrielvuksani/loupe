@@ -12,7 +12,14 @@
 > Update 2026-06-16 (daemon session): productization (a standalone `loupe serve` esbuild
 > bundle, MCP registration docs for all three agents, CI), the full pull flow proven with a
 > real browser plus a real MCP-over-HTTP client, SSRF + an optional WS token, and a real-site
-> validation that drove a target-size false-positive fix are all done. Ready for the PR to main.
+> validation that drove a target-size false-positive fix are all done.
+>
+> Update 2026-06-16 (power round): renamed goldeye to loupe everywhere and pushed to
+> github.com/gabrielvuksani/loupe (private, master). Context enrichment (unique selector +
+> position) so weak models target the exact element, send-to-agent with a user request (spawn or
+> pull, both proven e2e), lazy-loaded axe (content.js 654KB to 71KB), auto-reconnect plus a status
+> pill, the CLI published as loupe-cli, a human README, and a wxt store zip with placeholder icons.
+> HANDOFF.md is now the source of truth; this plan is historical.
 
 Mandate: complete this whole list end to end without checking in. The v0 substrate
 (engine, connected, extension) is built and green. This pass closes the gaps the
