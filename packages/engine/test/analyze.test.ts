@@ -89,6 +89,28 @@ describe("analyzeElement: target size", () => {
     expect(ts?.fix?.property).toBe("min-height");
     expect(ts?.fix?.to).toBe("44px");
   });
+
+  it("exempts an inline text link from target size (WCAG 2.5.5 inline exception)", () => {
+    const findings = analyzeElement({
+      selector: "a.inline",
+      tag: "a",
+      text: "read more",
+      styles: { display: "inline" },
+      box: { width: 80, height: 18 },
+    });
+    expect(findings.find((f) => f.ruleId === "target-size")).toBeUndefined();
+  });
+
+  it("still flags a small inline-block link button below the minimum", () => {
+    const findings = analyzeElement({
+      selector: "a.btn",
+      tag: "a",
+      text: "Buy",
+      styles: { display: "inline-block" },
+      box: { width: 80, height: 30 },
+    });
+    expect(findings.find((f) => f.ruleId === "target-size")).toBeDefined();
+  });
 });
 
 describe("analyzeElement: line length", () => {

@@ -47,8 +47,11 @@ export function analyzeElement(snapshot: ElementSnapshot): Finding[] {
     }
   }
 
-  // target-size: interactive elements must be reliably tappable.
-  if (snapshot.box && INTERACTIVE_TAGS.has(snapshot.tag)) {
+  // target-size: interactive elements must be reliably tappable. WCAG 2.5.5
+  // exempts inline targets (a link within a sentence), so an <a> rendered inline
+  // is treated as text, not a discrete tap target held to 44px.
+  const inlineLink = snapshot.tag === "a" && snapshot.styles.display === "inline";
+  if (snapshot.box && INTERACTIVE_TAGS.has(snapshot.tag) && !inlineLink) {
     const { width, height } = snapshot.box;
     const shortest = Math.min(width, height);
     if (shortest < MIN_TARGET_PX) {

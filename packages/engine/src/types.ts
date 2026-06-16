@@ -5,6 +5,7 @@ export interface ElementStyles {
   backgroundColor?: string;
   fontSize?: string;
   fontWeight?: string;
+  display?: string;
 }
 
 // Accessibility node: the role and accessible name a screen reader would announce.

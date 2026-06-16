@@ -14,6 +14,7 @@ export function captureElement(el: Element): ElementSnapshot {
       backgroundColor: resolveBackground(el),
       fontSize: cs.fontSize,
       fontWeight: cs.fontWeight,
+      display: cs.display,
     },
     box: { width: rect.width, height: rect.height },
   };

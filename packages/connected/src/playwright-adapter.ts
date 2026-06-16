@@ -95,6 +95,7 @@ function captureInPage(): { page: PageSnapshot; elements: ElementSnapshot[] } {
           backgroundColor: resolveBg(el),
           fontSize: cs.fontSize,
           fontWeight: cs.fontWeight,
+          display: cs.display,
         },
         box: { width: r.width, height: r.height },
       };
