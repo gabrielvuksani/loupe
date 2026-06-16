@@ -1,6 +1,7 @@
-// Generates placeholder Loupe icons (a gold eye on the dark brand background) as
-// PNGs, with a tiny hand-rolled encoder so no image dependency is needed. Swap
-// in a designed icon later; WXT auto-discovers public/icon/{size}.png.
+// Generates the Loupe extension icons: a gold magnifying glass on the dark brand
+// background, drawn with a tiny hand-rolled PNG encoder so no image dependency is
+// needed. Edges are anti-aliased by 4x supersampling. WXT auto-discovers
+// public/icon/{size}.png.
 import { deflateSync } from "node:zlib";
 import { writeFileSync, mkdirSync } from "node:fs";
 
@@ -52,25 +53,89 @@ function png(size, rgba) {
   return Buffer.concat([sig, chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
 }
 
+const BG = [20, 23, 31];
+const GOLD = [246, 207, 110];
+
+// Signed distance to a rounded box centered at (cx,cy) with half-size (hx,hy).
+function sdRoundBox(px, py, cx, cy, hx, hy, r) {
+  const qx = Math.abs(px - cx) - (hx - r);
+  const qy = Math.abs(py - cy) - (hy - r);
+  return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
+}
+
+// Signed distance to the segment a->b.
+function sdSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+// Color (straight RGBA, 0-255) at a normalized point in the unit square. The
+// loupe: a rounded dark tile, a gold lens ring with a faint glass tint, and a
+// gold handle running to the lower-right.
+function sample(nx, ny) {
+  const lcx = 0.42;
+  const lcy = 0.42;
+  const R = 0.26; // lens outer radius
+  const T = 0.075; // ring thickness
+  const hw = 0.055; // half handle width
+  // handle from just outside the ring at 45 degrees to the lower-right corner
+  const ax = lcx + (R - 0.005) * Math.SQRT1_2;
+  const ay = lcy + (R - 0.005) * Math.SQRT1_2;
+
+  let col = null;
+  let a = 0;
+  if (sdRoundBox(nx, ny, 0.5, 0.5, 0.5, 0.5, 0.22) < 0) {
+    col = BG;
+    a = 255;
+  } else {
+    return [0, 0, 0, 0];
+  }
+
+  const d = Math.hypot(nx - lcx, ny - lcy);
+  if (d < R - T) col = blend(col, GOLD, 0.16); // glass tint
+  if (d <= R && d >= R - T) col = GOLD; // ring
+  if (sdSegment(nx, ny, ax, ay, 0.8, 0.8) <= hw) col = GOLD; // handle
+
+  return [col[0], col[1], col[2], a];
+}
+
+function blend(base, top, alpha) {
+  return [
+    Math.round(base[0] * (1 - alpha) + top[0] * alpha),
+    Math.round(base[1] * (1 - alpha) + top[1] * alpha),
+    Math.round(base[2] * (1 - alpha) + top[2] * alpha),
+  ];
+}
+
 function iconRgba(size) {
+  const SS = 4; // supersampling factor for anti-aliasing
   const rgba = Buffer.alloc(size * size * 4);
-  const c = size / 2;
-  const iris = size * 0.4;
-  const pupil = size * 0.15;
-  const bg = [20, 23, 31];
-  const gold = [246, 207, 110];
-  const pupilColor = [20, 23, 31];
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
-      const d = Math.hypot(x + 0.5 - c, y + 0.5 - c);
-      let col = bg;
-      if (d <= pupil) col = pupilColor;
-      else if (d <= iris) col = gold;
+      let sr = 0;
+      let sg = 0;
+      let sb = 0;
+      let sa = 0;
+      for (let sy = 0; sy < SS; sy += 1) {
+        for (let sx = 0; sx < SS; sx += 1) {
+          const nx = (x + (sx + 0.5) / SS) / size;
+          const ny = (y + (sy + 0.5) / SS) / size;
+          const [r, g, b, a] = sample(nx, ny);
+          // premultiplied accumulation, so transparent edges stay clean
+          sr += r * a;
+          sg += g * a;
+          sb += b * a;
+          sa += a;
+        }
+      }
       const p = (y * size + x) * 4;
-      rgba[p] = col[0];
-      rgba[p + 1] = col[1];
-      rgba[p + 2] = col[2];
-      rgba[p + 3] = 255;
+      const aAvg = sa / (SS * SS);
+      rgba[p] = sa > 0 ? Math.round(sr / sa) : 0;
+      rgba[p + 1] = sa > 0 ? Math.round(sg / sa) : 0;
+      rgba[p + 2] = sa > 0 ? Math.round(sb / sa) : 0;
+      rgba[p + 3] = Math.round(aAvg);
     }
   }
   return rgba;

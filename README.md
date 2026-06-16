@@ -148,6 +148,15 @@ Honest about the edges: the deterministic loop, the on-page popover, axe in Stan
 
 The bridge binds loopback and accepts only `chrome-extension://` origins, so a page you visit cannot drive it. The MCP endpoint rejects any request that carries a browser `Origin` header. The render guard refuses non-http(s) URLs and resolves hostnames to block link-local and cloud-metadata addresses, while still allowing your `localhost` and LAN dev servers. For a belt and suspenders, `loupe serve --token` prints a one-time token the bridge then requires.
 
+## Privacy
+
+loupe collects nothing. No analytics, no telemetry, no server it phones home to.
+
+- **Standalone mode** runs entirely in your browser. The page you inspect never leaves the tab.
+- **Connected mode** talks only to a daemon you run yourself on `127.0.0.1`, and from there to the coding agent you picked, also on your machine. Your element context and change request never touch a third party.
+- The `<all_urls>` host permission lets the Lens inspect whatever page you point it at and inject the accessibility runtime on demand. It reads page content only while you are actively inspecting or scanning, and only to compute findings locally.
+- Nothing is sold, shared, or sent off your machine.
+
 ## License
 
 MIT.
