@@ -67,6 +67,8 @@
       }
       .btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(232,181,74,0.4); }
       .btn.on { background: rgba(232,181,74,0.16); border-color: rgba(232,181,74,0.4); color: var(--gold-bright); }
+      .rootInput { width: 100%; margin: 8px 2px 0; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line2); background: rgba(0,0,0,0.25); color: var(--ink); font-family: "Geist Mono", monospace; font-size: 11px; }
+      .rootInput::placeholder { color: var(--faint); }
 
       .score { display: flex; align-items: center; gap: 14px; margin: 14px 0 4px; padding: 14px 16px; border-radius: 14px; background: rgba(255,255,255,0.025); border: 1px solid var(--line); }
       .ring { width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; font-weight: 700; font-size: 16px; background: conic-gradient(var(--gold) calc(var(--p) * 1%), rgba(255,255,255,0.08) 0); }
@@ -118,6 +120,9 @@
         <button class="pill" data-agent="Codex">Codex</button>
         <button class="pill" data-agent="OpenCode">OpenCode</button>
       </div>
+
+      <div class="label" id="rootLabel" style="display: none">Project root</div>
+      <input id="root" class="rootInput" placeholder="/path/to/your/repo" style="display: none" />
 
       <div class="actions">
         <button class="btn" id="inspect">Inspect element</button>

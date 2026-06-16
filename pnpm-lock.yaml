@@ -64,6 +64,9 @@ importers:
       '@goldeye/engine':
         specifier: workspace:*
         version: link:../engine
+      axe-core:
+        specifier: ^4.12.1
+        version: 4.12.1
     devDependencies:
       typescript:
         specifier: ^6.0.3

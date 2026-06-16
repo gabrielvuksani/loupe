@@ -38,6 +38,13 @@ function escapeHtml(s: string): string {
   );
 }
 
+function projectRoot(): string {
+  return ($("root") as HTMLInputElement).value.trim();
+}
+function pushMode(): void {
+  void toTab({ type: "set-mode", mode, agent });
+}
+
 // ---------- mode + agent ----------
 function setMode(m: Mode): void {
   mode = m;
@@ -48,6 +55,10 @@ function setMode(m: Mode): void {
     m === "connected"
       ? `<b>Full loop.</b> Element packets stream to the goldeye engine and your CLI agent (${escapeHtml(agent)}) to apply, then re-verify.`
       : `<b>Local engine.</b> Deterministic checks run in your browser: contrast, target size, type scale, palette. $0, offline, nothing leaves the tab.`;
+  const showRoot = m === "connected";
+  $("rootLabel").style.display = showRoot ? "block" : "none";
+  $("root").style.display = showRoot ? "block" : "none";
+  pushMode();
   if (m === "connected") connectWs();
   else {
     ws?.close();
@@ -58,7 +69,21 @@ function connectWs(): void {
   try {
     ws = new WebSocket("ws://localhost:8791");
     ws.addEventListener("open", () => toast("Engine connected"));
-    ws.addEventListener("error", () => toast("Engine offline. Start the connected bridge"));
+    ws.addEventListener("error", () =>
+      toast("Engine offline. Start: pnpm --filter @goldeye/connected serve"),
+    );
+    ws.addEventListener("message", (e) => {
+      try {
+        const m = JSON.parse(String(e.data)) as { type?: string; phase?: string; message?: string };
+        if (m.type === "dispatch-status") {
+          if (m.phase === "dispatching") toast(`Dispatching to ${agent}...`);
+          else if (m.phase === "applied") toast("Agent applied. Re-verify to see the climb");
+          else if (m.phase === "error") toast(m.message ?? "Dispatch failed");
+        }
+      } catch {
+        /* ignore */
+      }
+    });
   } catch {
     /* ignore */
   }
@@ -68,6 +93,7 @@ function setAgent(name: string): void {
   document.querySelectorAll("#agent .pill").forEach((b) =>
     b.classList.toggle("on", (b as HTMLElement).dataset["agent"] === name),
   );
+  pushMode();
   if (mode === "connected") setMode("connected");
 }
 
@@ -124,8 +150,17 @@ function renderPacket(packet: ElementPacket, markdown: string): void {
 function doDispatch(): void {
   if (!lastPacket) return;
   if (mode === "connected") {
-    ws?.send(JSON.stringify({ type: "dispatch", agent, packet: lastPacket.packet }));
-    toast(`Dispatched to ${agent}`);
+    const cwd = projectRoot();
+    if (!cwd) {
+      toast("Set the project root first");
+      return;
+    }
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "dispatch", agent, packet: lastPacket.packet, cwd }));
+      toast(`Dispatched to ${agent}`);
+    } else {
+      toast("Engine offline. Start: pnpm --filter @goldeye/connected serve");
+    }
   } else {
     void navigator.clipboard
       .writeText(lastPacket.markdown)
@@ -174,6 +209,14 @@ browser.runtime.onMessage.addListener((message: unknown) => {
     findings?: Finding[];
     score?: Score;
   };
-  if (msg.type === "element-result" && msg.packet && msg.markdown) renderPacket(msg.packet, msg.markdown);
-  else if (msg.type === "page-result" && msg.findings && msg.score) renderAudit(msg.findings, msg.score);
+  if (msg.type === "element-result" && msg.packet && msg.markdown) {
+    renderPacket(msg.packet, msg.markdown);
+    if (mode === "connected" && ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "publish-selection", packet: msg.packet }));
+    }
+  } else if (msg.type === "page-result" && msg.findings && msg.score) {
+    renderAudit(msg.findings, msg.score);
+  } else if (msg.type === "dispatch-current") {
+    doDispatch();
+  }
 });

@@ -89,5 +89,38 @@ describe("extension · content script runs the engine in-page (real browser, loa
     expect(
       result.findings?.some((f) => f.ruleId === "contrast" || f.ruleId === "font-variety"),
     ).toBe(true);
+    // axe-core ran in Standalone and merged its findings
+    expect(result.findings?.some((f) => f.ruleId.startsWith("axe:"))).toBe(true);
+  }, 60000);
+
+  it("shows the on-page popover with the verdict when an element is inspected", async () => {
+    const page = await ctx.newPage();
+    await page.goto(base, { waitUntil: "load" });
+    let sw = ctx.serviceWorkers()[0];
+    if (!sw) sw = await ctx.waitForEvent("serviceworker", { timeout: 15000 });
+    await page.waitForTimeout(300);
+
+    await sw.evaluate(async () => {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const id = tabs[0]?.id;
+      if (id != null) chrome.tabs.sendMessage(id, { type: "set-inspect", value: true });
+    });
+    await page.waitForTimeout(200);
+
+    await page.click(".ghost");
+    await page.waitForFunction(
+      () => {
+        const host = document.getElementById("goldeye-lens-popover");
+        return Boolean(
+          host && host.style.display === "block" && (host.shadowRoot?.textContent ?? "").includes("/100"),
+        );
+      },
+      { timeout: 10000 },
+    );
+
+    const pop = await page.evaluate(
+      () => document.getElementById("goldeye-lens-popover")?.shadowRoot?.textContent ?? "",
+    );
+    expect(pop.toLowerCase()).toContain("contrast");
   }, 60000);
 });
