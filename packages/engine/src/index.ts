@@ -8,6 +8,7 @@ export { reverifyElement, applyFix } from "./reverify";
 export { responsiveFindings } from "./responsive";
 export { colorVisionFindings, simulateCvd, svgColorMatrix, CVD_MATRICES } from "./vision";
 export { systemFindings } from "./system";
+export { focusFindings } from "./focus";
 export type {
   ElementSnapshot,
   ElementStyles,
@@ -23,3 +24,4 @@ export type { ReverifyResult } from "./reverify";
 export type { ViewportProbe } from "./responsive";
 export type { CvdType } from "./vision";
 export type { DesignSystem } from "./system";
+export type { FocusProbe } from "./focus";

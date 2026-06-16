@@ -10,10 +10,12 @@ import {
   analyzePage,
   responsiveFindings,
   systemFindings,
+  focusFindings,
   scoreFindings,
   type DesignSystem,
   type ElementSnapshot,
   type Finding,
+  type FocusProbe,
   type PageSnapshot,
   type Score,
   type ViewportProbe,
@@ -185,6 +187,79 @@ function probeOverflow(): { documentWidth: number; overflow: Array<{ selector: s
     documentWidth: document.documentElement.scrollWidth,
     overflow: overflow.sort((a, b) => b.overflowBy - a.overflowBy).slice(0, 10),
   };
+}
+
+// Tab through the interactive controls and record each one's resting versus
+// focused indicators. Real key presses make :focus-visible match the way it
+// would for a keyboard user, so a correctly built :focus-visible ring is not
+// mistaken for a missing one. Bounded to the first elements and tab presses.
+const FOCUS_TAGS = ["a", "button", "input", "select", "textarea"];
+async function probeFocusVisible(page: Page): Promise<FocusProbe[]> {
+  const base = await page.evaluate((tags) => {
+    const sel = (el: Element): string => {
+      const he = el as HTMLElement;
+      if (he.id) return `#${he.id}`;
+      const tag = el.tagName.toLowerCase();
+      const c = el.classList[0];
+      return c ? `${tag}.${c}` : tag;
+    };
+    const out: Record<string, { shadow: string; border: string }> = {};
+    const order: string[] = [];
+    for (const el of Array.from(document.body?.querySelectorAll("*") ?? [])) {
+      if (order.length >= 20) break;
+      if (!tags.includes(el.tagName.toLowerCase())) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      const s = sel(el);
+      if (s in out) continue;
+      const cs = getComputedStyle(el);
+      out[s] = {
+        shadow: cs.boxShadow,
+        border: `${cs.borderTopWidth} ${cs.borderTopStyle} ${cs.borderTopColor}`,
+      };
+      order.push(s);
+    }
+    return { out, order };
+  }, FOCUS_TAGS);
+
+  const focused = new Map<string, { outlineStyle: string; outlineWidth: string; shadow: string; border: string }>();
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur?.());
+  for (let i = 0; i < 40 && focused.size < base.order.length; i++) {
+    await page.keyboard.press("Tab");
+    const cur = await page.evaluate((tags) => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el || el === document.body) return null;
+      const tag = el.tagName.toLowerCase();
+      if (!tags.includes(tag)) return null;
+      const s = el.id ? `#${el.id}` : el.classList[0] ? `${tag}.${el.classList[0]}` : tag;
+      const cs = getComputedStyle(el);
+      return {
+        selector: s,
+        outlineStyle: cs.outlineStyle,
+        outlineWidth: cs.outlineWidth,
+        shadow: cs.boxShadow,
+        border: `${cs.borderTopWidth} ${cs.borderTopStyle} ${cs.borderTopColor}`,
+      };
+    }, FOCUS_TAGS);
+    if (cur && !focused.has(cur.selector)) focused.set(cur.selector, cur);
+  }
+
+  const probes: FocusProbe[] = [];
+  for (const selector of base.order) {
+    const f = focused.get(selector);
+    const b = base.out[selector];
+    if (!f || !b) continue;
+    probes.push({
+      selector,
+      focusOutlineStyle: f.outlineStyle,
+      focusOutlineWidth: f.outlineWidth,
+      baseShadow: b.shadow,
+      focusShadow: f.shadow,
+      baseBorder: b.border,
+      focusBorder: f.border,
+    });
+  }
+  return probes;
 }
 
 // Concatenate every same-origin stylesheet's text. Cross-origin sheets throw on
@@ -438,6 +513,10 @@ export async function renderAndAnalyze(url: string, root?: string): Promise<UrlR
       axeViolations = [];
     }
 
+    // Focus: tab through controls at the default viewport, before the responsive
+    // viewport changes below, and flag any that show no visible focus ring.
+    const focusProbes = await probeFocusVisible(page);
+
     // Responsive: re-measure horizontal overflow at a few widths, after the main
     // capture and axe so those ran at the default viewport.
     const probes: ViewportProbe[] = [];
@@ -449,6 +528,7 @@ export async function renderAndAnalyze(url: string, root?: string): Promise<UrlR
       ...engineFindings(captured, system),
       ...crossBrowser.findings,
       ...responsiveFindings(probes),
+      ...focusFindings(focusProbes),
     ];
 
     const lighthouse = await runLighthouse(url);
