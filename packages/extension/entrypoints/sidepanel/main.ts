@@ -40,6 +40,20 @@ function toast(text: string): void {
   window.setTimeout(() => el.classList.remove("show"), 2200);
 }
 
+// Live agent log: the dispatched agent's output, streamed in as it works.
+// textContent (never innerHTML) keeps streamed stdout as inert text.
+function showLog(headline: string): void {
+  const el = $("agentlog");
+  el.style.display = "block";
+  el.textContent = headline + "\n";
+}
+function appendLog(text: string): void {
+  const el = $("agentlog");
+  el.style.display = "block";
+  el.textContent += text;
+  el.scrollTop = el.scrollHeight;
+}
+
 // Persistent engine status in the header: green connected, red offline, hidden
 // in Standalone where there is no engine to reach.
 function setConn(state: "on" | "off" | null): void {
@@ -126,11 +140,25 @@ function connectWs(): void {
     });
     ws.addEventListener("message", (e) => {
       try {
-        const m = JSON.parse(String(e.data)) as { type?: string; phase?: string; message?: string };
+        const m = JSON.parse(String(e.data)) as {
+          type?: string;
+          phase?: string;
+          message?: string;
+          chunk?: string;
+        };
         if (m.type === "dispatch-status") {
-          if (m.phase === "dispatching") toast(`Dispatching to ${agent}...`);
-          else if (m.phase === "applied") toast("Agent applied. Re-verify to see the climb");
-          else if (m.phase === "error") toast(m.message ?? "Dispatch failed");
+          if (m.phase === "dispatching") {
+            showLog(`▷ ${agent} working…`);
+            toast(`Dispatching to ${agent}...`);
+          } else if (m.phase === "output" && m.chunk) {
+            appendLog(m.chunk);
+          } else if (m.phase === "applied") {
+            appendLog("\n✓ applied. Re-verify to see the climb.\n");
+            toast("Agent applied. Re-verify to see the climb");
+          } else if (m.phase === "error") {
+            appendLog(`\n✕ ${m.message ?? "dispatch failed"}\n`);
+            toast(m.message ?? "Dispatch failed");
+          }
         }
       } catch {
         /* ignore */

@@ -103,6 +103,7 @@
       .foot .btn { flex: 1; }
       .toast { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: rgba(20,23,31,0.92); border: 1px solid var(--line2); border-radius: 10px; padding: 9px 14px; font-size: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.4); opacity: 0; transition: 0.25s; }
       .toast.show { opacity: 1; }
+      .agentlog { display: none; margin: 12px 0 4px; padding: 10px 12px; border-radius: 12px; background: rgba(0,0,0,0.34); border: 1px solid var(--line); font-family: "Geist Mono", monospace; font-size: 10.5px; line-height: 1.5; color: var(--ink2); white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto; }
     </style>
   </head>
   <body>
@@ -152,6 +153,7 @@
 
       <div id="scoreHost"></div>
       <div id="findings"><div class="empty">Scan the page, or inspect an element, to see loupe's verdict.</div></div>
+      <div class="agentlog" id="agentlog"></div>
     </div>
 
     <div class="toast" id="toast"></div>

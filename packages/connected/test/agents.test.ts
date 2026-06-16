@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { analyzeElement, buildPacket } from "@loupe/engine";
-import { composeDispatch, composeBatchDispatch, composeTastePrompt } from "../src/agents";
+import { composeDispatch, composeBatchDispatch, composeTastePrompt, runCommand } from "../src/agents";
 
 const packet = buildPacket(
   { selector: ".ghost", tag: "button", styles: { color: "rgb(174, 182, 194)", backgroundColor: "rgb(255, 255, 255)" } },
@@ -68,6 +68,29 @@ describe("composeBatchDispatch: fix everything from a page audit", () => {
     const d = composeBatchDispatch("Codex", findings, "/repo", "tighten the visual hierarchy");
     expect(d.cmd).toBe("codex");
     expect(d.args.join("\n")).toMatch(/tighten the visual hierarchy/);
+  });
+});
+
+describe("runCommand: live output streaming", () => {
+  it("streams child output to onOutput as it runs and resolves ok on success", async () => {
+    const chunks: string[] = [];
+    const result = await runCommand(
+      { cmd: process.execPath, args: ["-e", "process.stdout.write('hello loupe')"], cwd: process.cwd() },
+      10000,
+      (c) => chunks.push(c),
+    );
+    expect(result.ok).toBe(true);
+    expect(chunks.join("")).toMatch(/hello loupe/);
+    expect(result.stdout).toMatch(/hello loupe/);
+  });
+
+  it("resolves ok:false for a non-zero exit instead of throwing", async () => {
+    const result = await runCommand(
+      { cmd: process.execPath, args: ["-e", "process.exit(3)"], cwd: process.cwd() },
+      10000,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe(3);
   });
 });
 

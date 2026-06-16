@@ -3,6 +3,24 @@ import { analyzeElement, analyzePage, buildPacket, scoreFindings, type ElementPa
 import { createSelectionStore, type SelectionStore } from "./selection-store";
 import { runDispatch, runBatchDispatch, type AgentName } from "./agents";
 
+// Forward an agent's live output to the extension as it runs, capped per
+// dispatch so a chatty agent cannot flood the socket. The full output still
+// arrives in the final result.
+const STREAM_CAP = 100_000;
+function streamSender(ws: WebSocket, id: unknown): (chunk: string) => void {
+  let streamed = 0;
+  return (chunk: string) => {
+    if (streamed >= STREAM_CAP) return;
+    const slice = chunk.slice(0, STREAM_CAP - streamed);
+    streamed += slice.length;
+    try {
+      ws.send(JSON.stringify({ type: "dispatch-status", id, phase: "output", chunk: slice }));
+    } catch {
+      /* socket closed mid-stream */
+    }
+  };
+}
+
 // WebSocket bridge for the extension's Connected mode. Shares a selection store
 // with the MCP server so the agent can pull what the browser published.
 export function startBridge(
@@ -94,7 +112,7 @@ export function startBridge(
             const request = typeof msg.request === "string" && msg.request.trim() ? msg.request : undefined;
             if (request) store.setRequest(request);
             ws.send(JSON.stringify({ type: "dispatch-status", id: msg.id, phase: "dispatching", agent }));
-            void runDispatch(agent, packet as ElementPacket, cwd, request).then((result) => {
+            void runDispatch(agent, packet as ElementPacket, cwd, request, undefined, streamSender(ws, msg.id)).then((result) => {
               ws.send(
                 JSON.stringify({
                   type: "dispatch-status",
@@ -124,7 +142,7 @@ export function startBridge(
               score: typeof msg.score === "number" ? msg.score : undefined,
             };
             ws.send(JSON.stringify({ type: "dispatch-status", id: msg.id, phase: "dispatching", agent }));
-            void runBatchDispatch(agent, findings as Finding[], cwd, request, context).then((result) => {
+            void runBatchDispatch(agent, findings as Finding[], cwd, request, context, undefined, streamSender(ws, msg.id)).then((result) => {
               ws.send(
                 JSON.stringify({
                   type: "dispatch-status",

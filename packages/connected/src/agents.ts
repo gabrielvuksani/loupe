@@ -84,8 +84,14 @@ export function composeBatchDispatch(
 }
 
 // Spawn a composed command, returning its output. Resolves with ok:false rather
-// than throwing when the agent binary is not installed.
-function runCommand({ cmd, args, cwd }: DispatchCommand, timeoutMs: number): Promise<DispatchResult> {
+// than throwing when the agent binary is not installed. onOutput, when given,
+// receives each stdout/stderr chunk as it arrives, so the caller can stream the
+// agent's progress live instead of waiting for the final result.
+export function runCommand(
+  { cmd, args, cwd }: DispatchCommand,
+  timeoutMs: number,
+  onOutput?: (chunk: string) => void,
+): Promise<DispatchResult> {
   return new Promise((resolve) => {
     const MAX_OUTPUT = 1_000_000;
     const child = spawn(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
@@ -105,8 +111,14 @@ function runCommand({ cmd, args, cwd }: DispatchCommand, timeoutMs: number): Pro
       child.kill("SIGKILL");
       finish({ ok: false, code: null, stdout, stderr: `${cmd} timed out after ${timeoutMs}ms` });
     }, timeoutMs);
-    child.stdout?.on("data", (d) => (stdout = cap(stdout, d)));
-    child.stderr?.on("data", (d) => (stderr = cap(stderr, d)));
+    child.stdout?.on("data", (d) => {
+      stdout = cap(stdout, d);
+      onOutput?.(String(d));
+    });
+    child.stderr?.on("data", (d) => {
+      stderr = cap(stderr, d);
+      onOutput?.(String(d));
+    });
     child.on("error", (e) =>
       finish({ ok: false, code: null, stdout, stderr: `${cmd} not available: ${e.message}` }),
     );
@@ -121,8 +133,9 @@ export function runDispatch(
   cwd: string,
   request?: string,
   timeoutMs = 600000,
+  onOutput?: (chunk: string) => void,
 ): Promise<DispatchResult> {
-  return runCommand(composeDispatch(agent, packet, cwd, request), timeoutMs);
+  return runCommand(composeDispatch(agent, packet, cwd, request), timeoutMs, onOutput);
 }
 
 // Run a "fix everything" batch dispatch over a whole page audit.
@@ -133,6 +146,7 @@ export function runBatchDispatch(
   request?: string,
   context?: PageContext,
   timeoutMs = 600000,
+  onOutput?: (chunk: string) => void,
 ): Promise<DispatchResult> {
-  return runCommand(composeBatchDispatch(agent, findings, cwd, request, context), timeoutMs);
+  return runCommand(composeBatchDispatch(agent, findings, cwd, request, context), timeoutMs, onOutput);
 }
