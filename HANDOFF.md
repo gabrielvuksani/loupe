@@ -13,7 +13,7 @@ under the old name on purpose so the history stays linked).
   loupe). It is a git worktree, so renaming the folder needs `git worktree move` and would
   break an active shell. Left for safety. The `master` worktree lives at `~/Projects/design-harness`.
 
-## Packages (104 unit tests + real-browser integration, 3 typechecks exit 0)
+## Packages (106 unit tests + real-browser integration, 3 typechecks exit 0)
 - `packages/engine`: pure, DOM-free detection and fix computation. Rules: contrast (WCAG with
   an OKLCH hue-preserving fix via culori plus an APCA reading), target-size (44px, inline `<a>`
   exempted per WCAG 2.5.5), large-text, line-length, semantic-tag, type-scale, font-variety,
@@ -74,8 +74,10 @@ Connected mode, two ways to drive it, both proven end to end in `pull.integratio
 - Verified on macOS only; not yet run on Windows.
 
 ## Roadmap (the next features, roughly by value)
-1. Responsive / multi-viewport checks (catch breakpoint and overflow issues; the clearest gap
-   vs Polypane).
+1. Responsive / multi-viewport checks: DONE 2026-06-16. renderAndAnalyze probes 375/768/1280 and
+   the pure `responsiveFindings` rule emits a `responsive-overflow` finding (new `responsive`
+   score category) per overflowing width, proven in integration.test. Next within this theme:
+   per-breakpoint element collisions and layout shifts beyond pure horizontal overflow.
 2. Vision simulation overlay (color blindness; the gap vs Stark).
 3. Keyboard and focus-order auditing (loupe leans on axe for a11y today).
 4. "Fix everything" batch dispatch (apply all findings in one send).
