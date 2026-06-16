@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "apca-w3": "^0.1.9",
     "culori": "^4.0.2"
   },
   "devDependencies": {

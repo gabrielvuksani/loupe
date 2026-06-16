@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { minimalAccessibleColor, alternativeAccessibleColor, contrastRatio } from "../src/index";
+import { minimalAccessibleColor, alternativeAccessibleColor, contrastRatio, apcaContrast } from "../src/index";
 import { converter } from "culori";
 
 const toOklch = converter("oklch");
@@ -30,5 +30,16 @@ describe("minimalAccessibleColor: hue and chroma preserving OKLCH fix", () => {
     const cBlend = toOklch(blendFix as string)?.c ?? 0;
     expect(cOk).toBeGreaterThan(cBlend);
     expect(cOk).toBeGreaterThan(c0 * 0.7);
+  });
+});
+
+describe("apcaContrast: perceptual signal alongside WCAG", () => {
+  it("returns a positive Lc for real text and near-maximum Lc for black on white", () => {
+    expect(apcaContrast("rgb(174, 182, 194)", "rgb(255, 255, 255)") ?? 0).toBeGreaterThan(0);
+    expect(apcaContrast("rgb(0, 0, 0)", "rgb(255, 255, 255)") ?? 0).toBeGreaterThan(90);
+  });
+
+  it("returns null for unparseable colors", () => {
+    expect(apcaContrast("not-a-color", "rgb(255,255,255)")).toBeNull();
   });
 });

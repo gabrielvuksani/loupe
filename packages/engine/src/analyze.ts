@@ -1,5 +1,5 @@
 import type { ComputedFix, ElementSnapshot, ElementStyles, Finding } from "./types";
-import { contrastRatio, minimalAccessibleColor, alternativeAccessibleColor } from "./contrast";
+import { contrastRatio, minimalAccessibleColor, alternativeAccessibleColor, apcaContrast } from "./contrast";
 
 const WCAG_AA_NORMAL = 4.5;
 const WCAG_AA_LARGE = 3;
@@ -15,12 +15,14 @@ export function analyzeElement(snapshot: ElementSnapshot): Finding[] {
     const ratio = contrastRatio(color, backgroundColor);
     const min = isLargeText(snapshot.styles) ? WCAG_AA_LARGE : WCAG_AA_NORMAL;
     if (ratio !== null && ratio < min) {
+      const lc = apcaContrast(color, backgroundColor);
+      const apcaNote = lc !== null ? ` (APCA Lc ${lc})` : "";
       const finding: Finding = {
         ruleId: "contrast",
         category: "a11y",
         severity: ratio < 3 ? "high" : "medium",
         selector: snapshot.selector,
-        message: `Text contrast ${ratio.toFixed(2)}:1 is below the WCAG AA minimum of ${min}:1.`,
+        message: `Text contrast ${ratio.toFixed(2)}:1 is below the WCAG AA minimum of ${min}:1${apcaNote}.`,
       };
       const fixedColor = minimalAccessibleColor(color, backgroundColor, min);
       if (fixedColor) {

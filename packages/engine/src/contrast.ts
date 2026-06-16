@@ -1,5 +1,6 @@
 // WCAG 2.1 contrast math, with an OKLCH lightness search for the suggested fix.
 import { converter, clampRgb } from "culori";
+import { calcAPCA } from "apca-w3";
 
 const toOklch = converter("oklch");
 const toRgb = converter("rgb");
@@ -54,6 +55,15 @@ export function contrastRatio(c1: string, c2: string): number | null {
 
 export function rgbString([r, g, b]: [number, number, number]): string {
   return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+}
+
+// APCA perceptual lightness contrast (Lc), an advisory signal alongside WCAG.
+export function apcaContrast(fg: string, bg: string): number | null {
+  const f = parseColor(fg);
+  const b = parseColor(bg);
+  if (!f || !b) return null;
+  const lc = calcAPCA(rgbString(f), rgbString(b));
+  return Number.isFinite(lc) ? Math.round(Math.abs(lc)) : null;
 }
 
 // The suggested fix color: search OKLCH lightness, keeping the original hue and
