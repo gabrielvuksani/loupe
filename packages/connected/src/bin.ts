@@ -1,30 +1,41 @@
 import { runMcp } from "./mcp-server";
 import { startBridge } from "./ws-bridge";
+import { startHttpMcp, DEFAULT_HTTP_PORT } from "./http-mcp";
 import { createSelectionStore } from "./selection-store";
 
 const mode = process.argv[2];
 const store = createSelectionStore();
 
+// All logs go to stderr: in stdio MCP mode stdout is the protocol channel.
 function launchBridge(): void {
   const wss = startBridge(8791, store);
   wss.on("error", (e: unknown) => console.error(`goldeye · bridge error: ${String(e)}`));
-  wss.on("listening", () =>
-    console.error("goldeye · WebSocket bridge on ws://127.0.0.1:8791"),
+  wss.on("listening", () => console.error("goldeye · WebSocket bridge on ws://127.0.0.1:8791"));
+}
+
+function launchHttpMcp(): void {
+  const server = startHttpMcp(DEFAULT_HTTP_PORT, store);
+  server.on("error", (e: unknown) => console.error(`goldeye · http mcp error: ${String(e)}`));
+  server.on("listening", () =>
+    console.error(`goldeye · MCP over HTTP on http://127.0.0.1:${DEFAULT_HTTP_PORT}/mcp`),
   );
 }
 
 if (mode === "--bridge") {
   launchBridge();
-} else if (mode === "--serve") {
-  // One process: the WS bridge for the browser and the stdio MCP server for the
-  // agent, sharing one selection store. This is what makes the agent able to
-  // pull what the Lens selected.
-  launchBridge();
+} else if (mode === "--mcp") {
   runMcp(store).catch((e: unknown) => {
     console.error(e);
     process.exit(1);
   });
+} else if (mode === "serve" || mode === "--serve") {
+  // The daemon: one process the user runs once. The browser connects to the WS
+  // bridge; every agent attaches to the HTTP MCP endpoint. They share one store,
+  // so an agent pulls exactly what the Lens selected. Run once, attach many.
+  launchBridge();
+  launchHttpMcp();
 } else {
+  // Back-compat bare invocation: speak stdio MCP for `... add --transport stdio`.
   runMcp(store).catch((e: unknown) => {
     console.error(e);
     process.exit(1);
