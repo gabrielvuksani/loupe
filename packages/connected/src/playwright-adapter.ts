@@ -8,11 +8,13 @@ import pixelmatch from "pixelmatch";
 import {
   analyzeElement,
   analyzePage,
+  responsiveFindings,
   scoreFindings,
   type ElementSnapshot,
   type Finding,
   type PageSnapshot,
   type Score,
+  type ViewportProbe,
 } from "@loupe/engine";
 import { runLighthouse, type LighthouseScores } from "./lighthouse-adapter";
 import { crossBrowserFindings, resolveTargets, type CrossBrowserSummary } from "./cross-browser";
@@ -147,6 +149,28 @@ function engineFindings(captured: { page: PageSnapshot; elements: ElementSnapsho
   const findings: Finding[] = [...analyzePage(captured.page)];
   for (const snap of captured.elements) findings.push(...analyzeElement(snap));
   return findings;
+}
+
+// Measure horizontal overflow at the current viewport: the document width and
+// the elements whose right edge spills past it. Injected via evaluate.
+function probeOverflow(): { documentWidth: number; overflow: Array<{ selector: string; overflowBy: number }> } {
+  const vw = window.innerWidth;
+  const sel = (el: Element): string => {
+    const he = el as HTMLElement;
+    if (he.id) return `#${he.id}`;
+    const tag = el.tagName.toLowerCase();
+    const c = el.classList[0];
+    return c ? `${tag}.${c}` : tag;
+  };
+  const overflow: Array<{ selector: string; overflowBy: number }> = [];
+  for (const el of Array.from(document.body?.querySelectorAll("*") ?? [])) {
+    const r = el.getBoundingClientRect();
+    if (r.width > 0 && r.right > vw + 1) overflow.push({ selector: sel(el), overflowBy: r.right - vw });
+  }
+  return {
+    documentWidth: document.documentElement.scrollWidth,
+    overflow: overflow.sort((a, b) => b.overflowBy - a.overflowBy).slice(0, 10),
+  };
 }
 
 // Concatenate every same-origin stylesheet's text. Cross-origin sheets throw on
@@ -390,9 +414,6 @@ export async function renderAndAnalyze(url: string): Promise<UrlReport> {
     const css = await page.evaluate(collectCssInPage);
     const crossBrowser = analyzeCrossBrowser(css);
 
-    // cross-browser findings join the engine findings so the score reflects them.
-    const findings = [...engineFindings(captured), ...crossBrowser.findings];
-
     let axeViolations: Array<{ id: string; impact: string | null; nodes: unknown[]; help: string }> = [];
     try {
       const res = await new AxeBuilder({ page }).analyze();
@@ -400,6 +421,15 @@ export async function renderAndAnalyze(url: string): Promise<UrlReport> {
     } catch {
       axeViolations = [];
     }
+
+    // Responsive: re-measure horizontal overflow at a few widths, after the main
+    // capture and axe so those ran at the default viewport.
+    const probes: ViewportProbe[] = [];
+    for (const width of [375, 768, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      probes.push({ width, ...(await page.evaluate(probeOverflow)) });
+    }
+    const findings = [...engineFindings(captured), ...crossBrowser.findings, ...responsiveFindings(probes)];
 
     const lighthouse = await runLighthouse(url);
 

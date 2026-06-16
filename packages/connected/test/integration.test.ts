@@ -3,17 +3,20 @@ import { createServer, type Server } from "node:http";
 import { renderAndAnalyze } from "../src/playwright-adapter";
 
 // A fixture page with intentional problems: 3 font families, a low-contrast
-// button (#aeb6c2 on white ≈ 1.9:1), and a small tap target.
+// button (#aeb6c2 on white is about 1.9:1), a small tap target, and a 500px
+// element that overflows a 375px mobile viewport.
 const HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>fixture</title>
 <style>
   body { font-family: Inter, sans-serif; }
   h1 { font-family: Georgia, serif; font-size: 40px; }
   .note { font-family: Roboto, sans-serif; font-size: 13px; color: #555; }
   .ghost { color: #aeb6c2; background: #ffffff; font-size: 15px; padding: 4px 8px; border: 0; }
+  .wide { width: 500px; height: 10px; background: #eee; }
 </style></head><body>
   <h1>Know your runway</h1>
   <p class="note">Cashflow, foreseen</p>
   <button class="ghost">Watch the tour</button>
+  <div class="wide"></div>
 </body></html>`;
 
 let server: Server;
@@ -47,6 +50,9 @@ describe("connected · renderAndAnalyze (real Playwright + axe-core + Lighthouse
 
       // axe-core ran for real
       expect(report.axe.violations).toBeGreaterThanOrEqual(0);
+
+      // the responsive probe caught the 500px element overflowing at 375px
+      expect(report.findings.some((f) => f.ruleId === "responsive-overflow")).toBe(true);
 
       // Lighthouse ran for real → a numeric accessibility score
       expect(typeof report.lighthouse.accessibility).toBe("number");

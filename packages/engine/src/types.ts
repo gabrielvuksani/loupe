@@ -51,7 +51,7 @@ export interface PageSnapshot {
   colorUsage?: Array<{ color: string; count: number }>;
 }
 
-export type FindingCategory = "a11y" | "taste" | "cross-browser";
+export type FindingCategory = "a11y" | "taste" | "cross-browser" | "responsive";
 export type Severity = "high" | "medium" | "low";
 
 export interface ComputedFix {

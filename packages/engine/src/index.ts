@@ -5,6 +5,7 @@ export { contrastRatio, minimalAccessibleColor, alternativeAccessibleColor, apca
 export { scoreFindings } from "./score";
 export { buildPacket, packetToMarkdown } from "./packet";
 export { reverifyElement, applyFix } from "./reverify";
+export { responsiveFindings } from "./responsive";
 export type {
   ElementSnapshot,
   ElementStyles,
@@ -17,3 +18,4 @@ export type {
 export type { Score } from "./score";
 export type { ElementPacket } from "./packet";
 export type { ReverifyResult } from "./reverify";
+export type { ViewportProbe } from "./responsive";

@@ -1,7 +1,7 @@
 import type { Finding, FindingCategory, Severity } from "./types";
 
 const WEIGHT: Record<Severity, number> = { high: 12, medium: 7, low: 3 };
-const CATEGORIES: readonly FindingCategory[] = ["a11y", "taste", "cross-browser"];
+const CATEGORIES: readonly FindingCategory[] = ["a11y", "taste", "cross-browser", "responsive"];
 
 export interface Score {
   overall: number;
