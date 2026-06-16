@@ -1,5 +1,12 @@
 # goldeye next session: close every gap, autonomously
 
+> Status 2026-06-16: the loop, pull-MCP dispatch, the on-page popover, the expanded
+> packet, axe in Standalone, the OKLCH fix, APCA, the agent taste seam, the spacing-scale
+> rule, and the ADR are all done and green. Remaining: the cross-browser rule
+> (@mdn/browser-compat-data + browserslist + @projectwallace/css-analyzer), pixelmatch,
+> the fuzzy Refactoring-UI rules (deferred to the agent taste layer on purpose), and the
+> live agent-applies-then-reverify e2e. See HANDOFF.md "Remaining" for the honest list.
+
 Mandate: complete this whole list end to end without checking in. The v0 substrate
 (engine, connected, extension) is built and green. This pass closes the gaps the
 last session deferred, most importantly the closed loop and the live dispatch.

@@ -47,17 +47,25 @@ Load it: open `chrome://extensions`, enable Developer mode, Load unpacked, selec
 ## packages/connected (MCP server + real browser)
 
 ```
-pnpm --filter @goldeye/connected mcp       # MCP server on stdio
-pnpm --filter @goldeye/connected bridge    # WebSocket bridge on :8791 (for the extension)
+pnpm --filter @goldeye/connected serve     # one process: WS bridge (:8791) + MCP server, shared selection
+pnpm --filter @goldeye/connected mcp       # MCP server only (stdio)
+pnpm --filter @goldeye/connected bridge    # WebSocket bridge only (:8791)
 ```
 
-Tools: `goldeye_analyze_url` (real Chromium render, engine findings, axe-core, Lighthouse scores) and `goldeye_analyze_element` (engine packet). Wire it to a CLI agent:
+Tools the agent calls from its own session:
+
+- `goldeye_get_selection`: pull the element the Lens has selected (findings, computed fixes, a11y node, source hint, and a cropped screenshot for vision).
+- `goldeye_reverify`: re-render a URL and report the before and after score. This is the loop.
+- `goldeye_score_taste`: record a subjective 0 to 10 taste read. The engine stays deterministic; this is the agent's judgment, surfaced as advisory.
+- `goldeye_analyze_url`, `goldeye_analyze_element`: real render and engine packet.
+
+Register goldeye in your agent (works with Claude Code, Codex, OpenCode):
 
 ```
-claude mcp add goldeye -- pnpm --dir <abs-path>/packages/connected mcp
+claude mcp add --transport stdio goldeye -- pnpm --dir <abs-path>/packages/connected serve
 ```
 
-The loop is closed by an agent PostToolUse hook that re-runs goldeye after the agent edits.
+The loop is pull-primary: select an element in the Lens, your running agent pulls it, edits its own repo, and calls `goldeye_reverify` to show the score climb. No LLM credentials leave your machine. A spawn fallback (`claude -p`, `codex exec`) covers the case where no session is live.
 
 ## Verification
 
@@ -66,8 +74,9 @@ The loop is closed by an agent PostToolUse hook that re-runs goldeye after the a
 | Engine rules and fixes | 14 unit tests including the zero-false-positive guard; strict typecheck |
 | MCP protocol and WS bridge | in-memory MCP client round-trip and live WebSocket round-trip |
 | Real render, axe, Lighthouse | integration test renders a fixture in real Chromium and returns findings plus a numeric Lighthouse score |
-| Extension end to end | built MV3 loaded into headed Chromium runs the engine in-page and returns findings |
+| Closed loop | integration test applies a computed contrast fix to a real render, re-judges, and the contrast finding is gone while the score rose |
+| Extension end to end | built MV3 in headed Chromium: scans a page, renders the on-page popover on click, and merges axe-core findings in Standalone |
 
-Not yet automated (manual): clicking through the Lens UI interactively, and a live agent applying then re-verifying a fix.
+Automated now: the deterministic loop, the on-page popover, and axe in Standalone all have passing tests. Still manual: a live CLI agent editing source then re-verifying end to end. The dispatch command composition per agent is unit-tested; the real spawn is opt-in because it edits files and spends tokens.
 
 Cross-platform: Node, Playwright, and WebSocket only, with no OS-specific paths. Tested on macOS, portable to Windows.

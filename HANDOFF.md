@@ -1,44 +1,52 @@
 # goldeye handoff
 
-v0 is built and green. A 3-package pnpm monorepo on branch feat/goldeye. Read README.md first for the what and the run commands.
+A 3-package pnpm monorepo on branch feat/design-mode-feature. Read README.md first
+for the what and the run commands. The architecture decisions are in
+docs/adr/0001 and in Engram (topic_key architecture/goldeye-loop).
 
-## State
-- packages/engine: deterministic detection and fix computation. 14 unit tests, typecheck clean.
-- packages/connected: MCP server, WebSocket bridge, real Playwright + axe-core + Lighthouse. unit + integration green.
-- packages/extension: WXT MV3 Lens. builds, typechecks, loaded-extension e2e green.
-- 16 unit tests + 2 real-browser integration tests, all passing.
+## State (2026-06-16)
+- packages/engine: deterministic detection plus fix computation. OKLCH hue-preserving
+  contrast fix (culori) with a blend alternative, APCA advisory signal (apca-w3),
+  contrast / target-size / large-text, and taste rules (font count, weights, type
+  scale, spacing-scale). reverifyElement is the pure loop primitive.
+- packages/connected: ONE serve process = WS bridge (:8791) + MCP server sharing a
+  selection store. Tools: get_selection, reverify, score_taste, analyze_url,
+  analyze_element. reverifyAfterFix applies fixes to a real render and re-judges.
+  Agent dispatch (composeDispatch / runDispatch) for Claude Code, Codex, OpenCode.
+- packages/extension: WXT MV3 Lens. On-page shadow-DOM popover with full actions,
+  axe-core in Standalone, a11y node + source + screenshot capture, publishes the
+  selection and dispatches over the bridge. Side panel mirrors the selection.
+- 39 unit tests, 4 real-browser integration tests, all green. Typecheck clean.
 
 ## Run
 - pnpm install
-- pnpm test (16 unit, fast)
-- pnpm test:integration (real browser; the extension e2e needs headed Chromium, works on macOS)
-- pnpm --filter @goldeye/extension build, then load .output/chrome-mv3 unpacked at chrome://extensions
-- pnpm --filter @goldeye/connected mcp (or bridge)
+- pnpm test (39 unit, fast)
+- pnpm test:integration (real browser; the extension e2e needs headed Chromium, macOS ok)
+- pnpm --filter @goldeye/extension build, then load .output/chrome-mv3 unpacked
+- pnpm --filter @goldeye/connected serve  (the WS bridge + MCP server together)
 
-## Key files
-- engine: src/{analyze,page,contrast,score,packet,capture,types,index}.ts
-- connected: src/{playwright-adapter,lighthouse-adapter,mcp-server,ws-bridge,bin}.ts
-- extension: entrypoints/{content,background}.ts, entrypoints/sidepanel/{index.html,main.ts}
-- Lens design reference (gitignored): prototypes/03-lens-extension.html
+## Pull loop, in one line
+Register goldeye as an MCP server in your agent, select an element in the Lens, the
+agent calls goldeye_get_selection, edits its own repo, then calls goldeye_reverify.
 
-## Next
-The full autonomous plan with acceptance criteria is in NEXT_SESSION.md. It closes
-every gap from the last session in priority order: the closed loop, live agent
-dispatch, the on-page popover, the expanded packet with a screenshot, axe in
-standalone, the adopted libraries, the full taste rule set, and the Candidis merge.
-
-## Known gaps in this build (be honest, do not reclaim these as done)
-- The closed loop is not wired. The engine detects and computes fixes; nothing applies or re-verifies.
-- Connected "Send to agent" is a no-op. The WS bridge ignores the dispatch message.
-- There is no on-page popover. Results go to the side panel only, so the chosen one-gesture flow is unmet.
-- The packet has no screenshot, outerHTML, a11y node, or source location.
-- Standalone does not run axe-core. axe runs only in the connected Playwright path.
-- culori, browser-compat-data, projectwallace, pixelmatch, APCA, element-source are not installed or used.
-- Two taste rules exist (font count, type scale). The full Refactoring-UI set and the AI taste score are not built.
+## Remaining (honest, not done)
+- Cross-browser rule (@mdn/browser-compat-data + browserslist + @projectwallace/css-analyzer)
+  is NOT built. It is a connected-only feature (BCD is large; the engine must stay light
+  for the content-script bundle). The "cross-browser" Finding category exists but has no rule yet.
+- pixelmatch visual diff in the re-verify step is NOT built.
+- element-source is implemented INLINE (React fiber _debugSource and data-source attrs),
+  not via the npm package. Same behavior, one fewer dep. Documented choice, not the lib.
+- The full Refactoring-UI taste set is PARTIAL. spacing-scale was added; line-length,
+  accent-count, hierarchy levers, semantic-tag-vs-role, and shades-per-color were
+  deferred on purpose: they are fuzzy and would risk the zero-false-positive guard, so
+  the subjective half is handled by the agent taste score instead (the thesis).
+- The live end-to-end agent-applies-then-reverify is MANUAL. composeDispatch is
+  unit-tested per agent; the real spawn is opt-in (it edits files and spends tokens).
 
 ## Gotchas
 - Extension service workers need headed Chromium in Playwright tests; headless does not load them.
-- The MCP server uses the SDK low-level Server. The deprecation notice is cosmetic and stable across SDK versions.
-- Lighthouse drives Playwright's bundled chromium via chrome-launcher, so no system Chrome is needed.
-- BUILD_PLAN.md and prototypes/ are gitignored by intent.
-- The engine package main is src/index.ts; consumers (Vite, tsx, vitest) compile the TS source directly.
+- The content script bundles axe-core, so it is ~650KB. A future win is lazy-loading axe.
+- The MCP server uses the SDK low-level Server; the deprecation notice is cosmetic.
+- Lighthouse drives Playwright's bundled chromium via chrome-launcher; no system Chrome needed.
+- The engine package main is src/index.ts; consumers compile the TS source directly.
+- The selection store only works when the WS bridge and MCP server share one process (serve).
