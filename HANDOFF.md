@@ -7,13 +7,13 @@ under the old name on purpose so the history stays linked).
 
 ## Where things are
 - GitHub: `github.com/gabrielvuksani/loupe` (PRIVATE). `master` is the default branch.
-- `master` == `feat/design-mode-feature` == HEAD `00afb25`, all pushed. Tree clean.
+- `master` == `feat/design-mode-feature` == HEAD `9d394a2`, all pushed. Tree clean.
 - This working tree: `~/orca/workspaces/design-harness/goldeye`. The folder is still named
   `goldeye`; that is cosmetic only (every package, the repo, the npm name, and all code say
   loupe). It is a git worktree, so renaming the folder needs `git worktree move` and would
   break an active shell. Left for safety. The `master` worktree lives at `~/Projects/design-harness`.
 
-## Packages (117 unit tests + real-browser integration, 3 typechecks exit 0)
+## Packages (122 unit tests + real-browser integration, 3 typechecks exit 0)
 - `packages/engine`: pure, DOM-free detection and fix computation. Rules: contrast (WCAG with
   an OKLCH hue-preserving fix via culori plus an APCA reading), target-size (44px, inline `<a>`
   exempted per WCAG 2.5.5), large-text, line-length, semantic-tag, type-scale, font-variety,
@@ -28,8 +28,9 @@ under the old name on purpose so the history stays linked).
   (:8791) for the browser + MCP over HTTP (http://127.0.0.1:8792/mcp) for agents, sharing one
   selection store, plus `/health`. Real Playwright render, axe-core, Lighthouse. MCP tools:
   loupe_get_selection, loupe_reverify, loupe_score_taste, loupe_analyze_url, loupe_analyze_element.
-  Agent dispatch (composeDispatch / runDispatch) carries the user's request. SSRF guard
-  (assertRenderableUrl). Optional WS token (`serve --token`). Session map capped at 32.
+  Agent dispatch carries the user's request, single (composeDispatch / runDispatch) or whole-page
+  batch (composeBatchDispatch / runBatchDispatch via the `dispatch-batch` bridge message). SSRF
+  guard (assertRenderableUrl). Optional WS token (`serve --token`). Session map capped at 32.
 - `packages/extension` (@loupe/extension): WXT MV3 Lens. Standalone runs the engine in-page;
   axe-core is LAZY-loaded on demand via `entrypoints/axe.ts` + chrome.scripting (content.js is
   71KB, not 654KB). Connected publishes the selection and the user's request over the bridge.
@@ -41,7 +42,7 @@ under the old name on purpose so the history stays linked).
 
 ## Run / build / test
 - `pnpm install`
-- `pnpm test` (117 unit, fast)
+- `pnpm test` (122 unit, fast)
 - `pnpm test:integration` (real browser; 5 pass, gated suites need flags below)
 - `pnpm --filter @loupe/extension build`, then load `.output/chrome-mv3` unpacked
 - `pnpm --filter loupe-cli serve` (or `node packages/connected/dist/bin.js serve` after build)
@@ -56,6 +57,9 @@ Connected mode, two ways to drive it, both proven end to end in `pull.integratio
 2. Leave your agent session open: it calls `loupe_get_selection` and pulls the same context plus
    your request. `get_selection` returns the unique selector, pixel position, role/name,
    source file:line, a cropped screenshot, every computed fix, and the request, in your words.
+3. Hit Scan, then "Fix all": the whole page audit (every finding, grouped by element, each with
+   its computed fix) dispatches in one batch via `dispatch-batch` / runBatchDispatch. Standalone
+   copies the same batch markdown to the clipboard instead.
 
 ## Publishing (loupe-cli) and the store
 - npm publish FROM THE PACKAGE, not the repo root (root is private + has no version; publishing
@@ -92,7 +96,10 @@ Connected mode, two ways to drive it, both proven end to end in `pull.integratio
    analyze.ts, exact remedy in the message, no CSS fix since it is an attribute change; captured
    in both DOM adapters, proven in analyze.test.ts and the render integration). Still open:
    missing focus indicators (needs :focus computed-style capture, which is false-positive prone).
-4. "Fix everything" batch dispatch (apply all findings in one send).
+4. "Fix everything" batch dispatch: DONE 2026-06-16. `findingsToMarkdown` (engine) renders a whole
+   page audit grouped by element; composeBatchDispatch / runBatchDispatch and the `dispatch-batch`
+   bridge message carry it; the Scan view grows a "Fix all" button (Connected) or "Copy all
+   findings" (Standalone). Proven in findings-markdown.test.ts, agents.test.ts, server.test.ts.
 5. Stream the agent's diff/progress back into the panel live (currently just a toast).
 6. Canonical design-system check: grade against tokens the user authored, not only universal
    invariants. `analyzePage` already infers the page's own system.
