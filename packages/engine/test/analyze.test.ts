@@ -198,6 +198,32 @@ describe("analyzeElement: semantic tag", () => {
   });
 });
 
+describe("analyzeElement: keyboard and focus order", () => {
+  it("flags a positive tabindex that forces a manual tab order", () => {
+    const findings = analyzeElement({
+      selector: "div.card",
+      tag: "div",
+      styles: {},
+      tabIndex: 3,
+    });
+    const f = findings.find((x) => x.ruleId === "tabindex-order");
+    expect(f).toBeDefined();
+    expect(f?.category).toBe("a11y");
+    expect(f?.severity).toBe("medium");
+    expect(f?.message).toMatch(/tabindex/i);
+  });
+
+  it("does not flag tabindex=0, the natural order", () => {
+    const findings = analyzeElement({ selector: "div.card", tag: "div", styles: {}, tabIndex: 0 });
+    expect(findings.find((x) => x.ruleId === "tabindex-order")).toBeUndefined();
+  });
+
+  it("leaves tabindex=-1 alone (legitimate for roving and programmatic focus)", () => {
+    const findings = analyzeElement({ selector: "div.card", tag: "div", styles: {}, tabIndex: -1 });
+    expect(findings.find((x) => x.ruleId === "tabindex-order")).toBeUndefined();
+  });
+});
+
 describe("analyzeElement: no false positives", () => {
   it("returns no findings for a compliant element", () => {
     const findings = analyzeElement({

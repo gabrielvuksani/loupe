@@ -20,6 +20,13 @@ export function captureElement(el: Element): ElementSnapshot {
     box: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
   };
   if (text) snapshot.text = text;
+  // Only the authored tabindex attribute, not the default IDL value (which is
+  // 0 or -1 on every element and would be noise).
+  const tabAttr = el.getAttribute("tabindex");
+  if (tabAttr !== null) {
+    const ti = Number.parseInt(tabAttr, 10);
+    if (Number.isFinite(ti)) snapshot.tabIndex = ti;
+  }
   return snapshot;
 }
 

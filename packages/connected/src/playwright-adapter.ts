@@ -127,6 +127,11 @@ function captureInPage(): { page: PageSnapshot; elements: ElementSnapshot[] } {
         box: { x: r.x, y: r.y, width: r.width, height: r.height },
       };
       if (txt) snap.text = txt.slice(0, 120);
+      const tabAttr = el.getAttribute("tabindex");
+      if (tabAttr !== null) {
+        const ti = Number.parseInt(tabAttr, 10);
+        if (Number.isFinite(ti)) snap.tabIndex = ti;
+      }
       elements.push(snap);
     }
   }

@@ -16,6 +16,7 @@ const HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>
   <h1>Know your runway</h1>
   <p class="note">Cashflow, foreseen</p>
   <button class="ghost">Watch the tour</button>
+  <a href="#main" class="skip" tabindex="2">Skip ahead</a>
   <div class="wide"></div>
 </body></html>`;
 
@@ -53,6 +54,9 @@ describe("connected · renderAndAnalyze (real Playwright + axe-core + Lighthouse
 
       // the responsive probe caught the 500px element overflowing at 375px
       expect(report.findings.some((f) => f.ruleId === "responsive-overflow")).toBe(true);
+
+      // the positive tabindex on the skip link was flagged
+      expect(report.findings.some((f) => f.ruleId === "tabindex-order")).toBe(true);
 
       // Lighthouse ran for real → a numeric accessibility score
       expect(typeof report.lighthouse.accessibility).toBe("number");

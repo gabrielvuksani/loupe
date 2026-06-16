@@ -88,6 +88,21 @@ export function analyzeElement(snapshot: ElementSnapshot): Finding[] {
     }
   }
 
+  // tabindex-order: a positive tabindex forces a manual tab order that diverges
+  // from the DOM and breaks as the page changes. 0 or absent is correct; a
+  // negative value is left alone (legitimate for roving tabindex and
+  // programmatic focus). The remedy is an attribute change, so no CSS fix is
+  // attached; the message carries the exact instruction.
+  if (snapshot.tabIndex !== undefined && snapshot.tabIndex > 0) {
+    findings.push({
+      ruleId: "tabindex-order",
+      category: "a11y",
+      severity: "medium",
+      selector: snapshot.selector,
+      message: `tabindex="${snapshot.tabIndex}" forces a manual tab order that fights the DOM and breaks as the page changes. Use tabindex="0" to join the natural order, or remove it.`,
+    });
+  }
+
   // line-length: body text past ~75 characters per line is tiring to read.
   if (snapshot.text && snapshot.text.length >= MIN_WRAPPING_TEXT && snapshot.box) {
     const px = Number.parseFloat(snapshot.styles.fontSize ?? "");

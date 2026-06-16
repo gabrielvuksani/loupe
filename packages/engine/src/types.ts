@@ -33,6 +33,8 @@ export interface ElementSnapshot {
   box?: { x?: number; y?: number; width: number; height: number };
   outerHTML?: string;
   a11y?: A11yNode;
+  // The authored tabindex attribute, when present (not the default IDL value).
+  tabIndex?: number;
   source?: SourceLocation;
   screenshot?: string;
 }
