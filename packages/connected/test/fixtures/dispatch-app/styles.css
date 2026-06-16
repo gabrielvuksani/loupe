@@ -1,0 +1,13 @@
+/* Fixture for the gated live-dispatch test.
+   .ghost is a real, fixable contrast problem: #aeb6c2 on white is ~1.9:1,
+   below the 4.5:1 WCAG AA threshold. An agent should darken the color. */
+body {
+  font-family: Inter, system-ui, sans-serif;
+}
+.ghost {
+  color: #aeb6c2;
+  background: #ffffff;
+  font-size: 15px;
+  padding: 8px 12px;
+  border: 0;
+}

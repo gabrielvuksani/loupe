@@ -1,5 +1,8 @@
-import { chromium } from "playwright";
+import { chromium, type Page } from "playwright";
 import { AxeBuilder } from "@axe-core/playwright";
+import { analyze as analyzeCss } from "@projectwallace/css-analyzer";
+import { PNG } from "pngjs";
+import pixelmatch from "pixelmatch";
 import {
   analyzeElement,
   analyzePage,
@@ -10,6 +13,7 @@ import {
   type Score,
 } from "@goldeye/engine";
 import { runLighthouse, type LighthouseScores } from "./lighthouse-adapter";
+import { crossBrowserFindings, resolveTargets, type CrossBrowserSummary } from "./cross-browser";
 
 export interface UrlReport {
   url: string;
@@ -20,6 +24,7 @@ export interface UrlReport {
     details: Array<{ id: string; impact: string | null; nodes: number; help: string }>;
   };
   lighthouse: LighthouseScores;
+  crossBrowser: CrossBrowserSummary;
   page: PageSnapshot;
   elementsAnalyzed: number;
 }
@@ -107,10 +112,47 @@ function engineFindings(captured: { page: PageSnapshot; elements: ElementSnapsho
   return findings;
 }
 
+// Concatenate every same-origin stylesheet's text. Cross-origin sheets throw on
+// .cssRules access, so each is guarded and skipped.
+function collectCssInPage(): string {
+  let css = "";
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      for (const rule of Array.from(sheet.cssRules)) css += rule.cssText + "\n";
+    } catch {
+      // cross-origin sheet: not readable, skip it
+    }
+  }
+  return css;
+}
+
+// css-analyzer + the pure cross-browser rule. The heavy parse lives here in
+// connected; the rule itself stays pure in cross-browser.ts.
+function analyzeCrossBrowser(css: string): CrossBrowserSummary {
+  const targets = resolveTargets();
+  let used: string[] = [];
+  try {
+    const result = analyzeCss(css);
+    used = Object.keys(result.properties.unique);
+  } catch {
+    used = [];
+  }
+  return {
+    targets,
+    propertiesChecked: used.length,
+    findings: crossBrowserFindings(used, targets),
+  };
+}
+
 export interface AppliedFix {
   selector: string;
   property: string;
   to: string;
+}
+
+export interface VisualDelta {
+  changedPixels: number;
+  ratio: number;
 }
 
 export interface ReverifyReport {
@@ -118,6 +160,27 @@ export interface ReverifyReport {
   before: { findings: Finding[]; score: Score };
   after: { findings: Finding[]; score: Score };
   applied: AppliedFix[];
+  visualDelta: VisualDelta;
+}
+
+// Decode two PNG buffers and pixel-diff them. On any dimension mismatch the
+// images are not comparable, so we report a full delta (ratio 1) rather than
+// throwing. Pure over buffers, so it is unit-testable without a browser.
+export function visualDelta(beforePng: Buffer, afterPng: Buffer): VisualDelta {
+  const a = PNG.sync.read(beforePng);
+  const b = PNG.sync.read(afterPng);
+  if (a.width !== b.width || a.height !== b.height) {
+    const total = Math.max(a.width * a.height, b.width * b.height) || 1;
+    return { changedPixels: total, ratio: 1 };
+  }
+  const total = a.width * a.height;
+  const changedPixels = pixelmatch(a.data, b.data, undefined, a.width, a.height, { threshold: 0.1 });
+  return { changedPixels, ratio: total === 0 ? 0 : changedPixels / total };
+}
+
+// Full-page PNG screenshot of the current DOM state.
+function screenshot(page: Page): Promise<Buffer> {
+  return page.screenshot({ type: "png" });
 }
 
 // The loop on a real render: judge, apply the computed fixes to the live DOM,
@@ -130,6 +193,7 @@ export async function reverifyAfterFix(url: string, fixes?: AppliedFix[]): Promi
 
     const beforeCap = await page.evaluate(captureInPage);
     const beforeFindings = engineFindings(beforeCap);
+    const beforeShot = await screenshot(page);
 
     const applied: AppliedFix[] =
       fixes ??
@@ -146,12 +210,14 @@ export async function reverifyAfterFix(url: string, fixes?: AppliedFix[]): Promi
 
     const afterCap = await page.evaluate(captureInPage);
     const afterFindings = engineFindings(afterCap);
+    const afterShot = await screenshot(page);
 
     return {
       url,
       before: { findings: beforeFindings, score: scoreFindings(beforeFindings) },
       after: { findings: afterFindings, score: scoreFindings(afterFindings) },
       applied,
+      visualDelta: visualDelta(beforeShot, afterShot),
     };
   } finally {
     await browser.close();
@@ -167,7 +233,11 @@ export async function renderAndAnalyze(url: string): Promise<UrlReport> {
 
     const captured = await page.evaluate(captureInPage);
 
-    const findings = engineFindings(captured);
+    const css = await page.evaluate(collectCssInPage);
+    const crossBrowser = analyzeCrossBrowser(css);
+
+    // cross-browser findings join the engine findings so the score reflects them.
+    const findings = [...engineFindings(captured), ...crossBrowser.findings];
 
     let axeViolations: Array<{ id: string; impact: string | null; nodes: unknown[]; help: string }> = [];
     try {
@@ -193,6 +263,7 @@ export async function renderAndAnalyze(url: string): Promise<UrlReport> {
         })),
       },
       lighthouse,
+      crossBrowser,
       page: captured.page,
       elementsAnalyzed: captured.elements.length,
     };

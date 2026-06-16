@@ -43,6 +43,14 @@ describe("connected · reverifyAfterFix (the loop on a real render)", () => {
       expect(report.after.findings.some((f) => f.ruleId === "contrast")).toBe(false);
       expect(report.after.score.overall).toBeGreaterThan(report.before.score.overall);
       expect(report.applied.some((a) => a.property === "color")).toBe(true);
+
+      // a real before/after screenshot diff: the color fix changed pixels, so
+      // ratio is a finite fraction in (0, 1].
+      expect(report.visualDelta).toBeDefined();
+      expect(Number.isFinite(report.visualDelta.ratio)).toBe(true);
+      expect(report.visualDelta.ratio).toBeGreaterThanOrEqual(0);
+      expect(report.visualDelta.ratio).toBeLessThanOrEqual(1);
+      expect(Number.isInteger(report.visualDelta.changedPixels)).toBe(true);
     },
     120000,
   );
