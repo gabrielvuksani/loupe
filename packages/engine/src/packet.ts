@@ -8,6 +8,10 @@ export interface ElementPacket {
   text?: string;
   styles: ElementSnapshot["styles"];
   box?: ElementSnapshot["box"];
+  a11y?: ElementSnapshot["a11y"];
+  source?: ElementSnapshot["source"];
+  outerHTML?: string;
+  screenshot?: string;
   findings: Finding[];
   fixes: ComputedFix[];
   score: number;
@@ -26,6 +30,10 @@ export function buildPacket(snapshot: ElementSnapshot, findings: Finding[]): Ele
   };
   if (snapshot.text !== undefined) packet.text = snapshot.text;
   if (snapshot.box !== undefined) packet.box = snapshot.box;
+  if (snapshot.a11y !== undefined) packet.a11y = snapshot.a11y;
+  if (snapshot.source !== undefined) packet.source = snapshot.source;
+  if (snapshot.outerHTML !== undefined) packet.outerHTML = snapshot.outerHTML;
+  if (snapshot.screenshot !== undefined) packet.screenshot = snapshot.screenshot;
   return packet;
 }
 
@@ -35,6 +43,14 @@ export function packetToMarkdown(packet: ElementPacket): string {
     `## goldeye · ${packet.tag} \`${packet.selector}\``,
   ];
   if (packet.text) lines.push(`> "${packet.text}"`);
+  if (packet.a11y) {
+    const name = packet.a11y.name ? ` · name: "${packet.a11y.name}"` : "";
+    lines.push(`role: ${packet.a11y.role}${name}`);
+  }
+  if (packet.source) {
+    const line = packet.source.line ? `:${packet.source.line}` : "";
+    lines.push(`source: ${packet.source.file}${line}`);
+  }
   lines.push(`Score: ${packet.score}/100 · ${packet.findings.length} finding(s)`, "");
   for (const f of packet.findings) {
     lines.push(`- **[${f.severity}/${f.category}] ${f.ruleId}**: ${f.message}`);

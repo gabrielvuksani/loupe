@@ -7,12 +7,29 @@ export interface ElementStyles {
   fontWeight?: string;
 }
 
+// Accessibility node: the role and accessible name a screen reader would announce.
+export interface A11yNode {
+  role: string;
+  name: string;
+  state?: string;
+}
+
+// Where the element comes from in source, when a dev build exposes it.
+export interface SourceLocation {
+  file: string;
+  line?: number;
+}
+
 export interface ElementSnapshot {
   selector: string;
   tag: string;
   text?: string;
   styles: ElementStyles;
   box?: { width: number; height: number };
+  outerHTML?: string;
+  a11y?: A11yNode;
+  source?: SourceLocation;
+  screenshot?: string;
 }
 
 // Page-wide design signals for the taste rules.

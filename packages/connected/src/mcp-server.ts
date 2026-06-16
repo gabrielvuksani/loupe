@@ -83,10 +83,27 @@ export function createServer(store: SelectionStore = createSelectionStore()): Se
     try {
       if (name === "goldeye_get_selection") {
         const packet = store.get();
-        const text = packet
-          ? packetToMarkdown(packet)
-          : "No element is currently selected in the goldeye Lens.";
-        return { content: [{ type: "text", text }] };
+        if (!packet) {
+          return {
+            content: [{ type: "text", text: "No element is currently selected in the goldeye Lens." }],
+          };
+        }
+        const content: Array<Record<string, unknown>> = [
+          { type: "text", text: packetToMarkdown(packet) },
+        ];
+        const shot = packet.screenshot;
+        if (typeof shot === "string" && shot.startsWith("data:image/")) {
+          const comma = shot.indexOf(",");
+          const semi = shot.indexOf(";");
+          if (comma > 0) {
+            content.push({
+              type: "image",
+              data: shot.slice(comma + 1),
+              mimeType: semi > 0 ? shot.slice(5, semi) : "image/png",
+            });
+          }
+        }
+        return { content };
       }
       if (name === "goldeye_reverify") {
         const fixes = args["fixes"] as AppliedFix[] | undefined;
