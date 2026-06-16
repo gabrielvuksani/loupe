@@ -8,8 +8,9 @@ docs/adr/0001 and in Engram (topic_key architecture/goldeye-loop).
 - packages/engine: deterministic detection plus fix computation. OKLCH hue-preserving
   contrast fix (culori) with a blend alternative, APCA advisory signal (apca-w3),
   contrast / target-size / large-text, and taste rules (font count, weights, type
-  scale, spacing-scale, line-length, semantic-tag, color-count). reverifyElement is
-  the pure loop primitive.
+  scale, spacing-scale, line-length, semantic-tag, color-count, accent-spread,
+  shades-per-color). The page snapshot captures per-color frequency (colorUsage).
+  reverifyElement is the pure loop primitive.
 - packages/connected: ONE serve process = WS bridge (:8791) + MCP server sharing a
   selection store. Tools: get_selection, reverify, score_taste, analyze_url,
   analyze_element. reverifyAfterFix applies fixes to a real render and re-judges,
@@ -19,7 +20,7 @@ docs/adr/0001 and in Engram (topic_key architecture/goldeye-loop).
 - packages/extension: WXT MV3 Lens. On-page shadow-DOM popover with full actions,
   axe-core in Standalone, a11y node + source + screenshot capture, publishes the
   selection and dispatches over the bridge. Side panel mirrors the selection.
-- 65 unit tests and 4 real-browser integration tests are green; a 5th gated
+- 71 unit tests and 4 real-browser integration tests are green; a 5th gated
   live-dispatch e2e was run live with Claude Code and passed. Typecheck clean across
   all 3 packages.
 
@@ -35,11 +36,13 @@ Register goldeye as an MCP server in your agent, select an element in the Lens, 
 agent calls goldeye_get_selection, edits its own repo, then calls goldeye_reverify.
 
 ## Remaining (honest)
-- Three fuzzy Refactoring-UI rules are still deferred: hierarchy levers, the 60-30-10
-  accent ratio, and shades-per-color. They need color-frequency data the snapshot does
-  not capture and would risk the zero-false-positive guard, so the subjective half is
-  the agent taste score by design (the thesis). spacing-scale, line-length, semantic-tag,
-  and color-count are built.
+- The page snapshot now captures per-color frequency (colorUsage), so accent-spread
+  (the deterministic core of 60-30-10: limit competing saturated accents) and
+  shades-per-color (a heavily reused accent stuck at one flat shade) are built and
+  zero-FP-tested. Of the original fuzzy set, only hierarchy levers is not a standalone
+  rule: its intent (do not over-use every distinction lever at once) is already bounded
+  by type-scale, font-weights, and color-count, with the subjective call left to the
+  agent taste score.
 - element-source: the npm package (0.0.5, no repository or docs) was deliberately NOT
   adopted. The inline React-fiber _debugSource and data-source detection is used instead.
 - The live agent-applies-then-reverify e2e is GATED behind GOLDEYE_LIVE_DISPATCH=1 so it

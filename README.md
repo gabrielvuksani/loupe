@@ -25,7 +25,7 @@ pnpm test:integration     # real browser: render, axe, Lighthouse, loaded extens
 Pure functions over an `ElementSnapshot` or `PageSnapshot`. The content script captures, the engine analyzes. Every rule is a small unit, and a zero-false-positive guard test stays green for every new rule.
 
 - `analyzeElement(snapshot)`: contrast (OKLCH minimal-color fix plus an APCA signal), target size, large-text threshold, line length, and semantic tag vs role.
-- `analyzePage(snapshot)`: font variety, font weights, type scale, spacing scale, and text-color count.
+- `analyzePage(snapshot)`: font variety, font weights, type scale, spacing scale, text-color count, accent spread, and shades per color.
 - Connected adds a cross-browser rule (browser-compat-data + browserslist + projectwallace) and a pixelmatch before/after visual delta on re-verify.
 - `scoreFindings(findings)`: deterministic weighted deduction to a 0 to 100 score, overall and per category.
 - `buildPacket`, `packetToMarkdown`: the agent-pasteable context packet.

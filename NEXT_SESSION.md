@@ -5,9 +5,9 @@
 > rules (spacing-scale, line-length, semantic-tag, color-count), the cross-browser rule
 > (browser-compat-data + browserslist + projectwallace), the pixelmatch visual delta,
 > the ADR, and a live agent-applies-then-reverify e2e (run with Claude Code) are all done
-> and green. Only deferred: three fuzzy taste rules (hierarchy levers, 60-30-10 accent
-> ratio, shades-per-color) that need color-frequency data, left to the agent taste layer
-> by design. See HANDOFF.md "Remaining".
+> and green, plus accent-spread and shades-per-color (built from a new per-color
+> frequency capture). Only hierarchy levers is left as a standalone rule, and its intent
+> is already covered by type-scale, font-weights, and color-count. See HANDOFF.md.
 
 Mandate: complete this whole list end to end without checking in. The v0 substrate
 (engine, connected, extension) is built and green. This pass closes the gaps the
