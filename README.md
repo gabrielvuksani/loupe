@@ -110,7 +110,7 @@ Deterministic, in the engine:
 - **Focus.** Controls with no visible focus ring under keyboard navigation, tested with real Tab presses so a correct `:focus-visible` ring passes.
 - **Responsive.** Horizontal overflow at phone, tablet, and desktop widths, naming the elements that spill past the edge.
 - **Cross-browser.** Used CSS properties checked against your browserslist targets.
-- **Design system.** Drop a `loupe.tokens.json` in your repo and any font size or color off your authored scale is flagged, with the nearest token as the fix.
+- **Design system.** Drop a `loupe.tokens.json` in your repo and any font size, color, or spacing off your authored scale is flagged, with the nearest token as the fix.
 
 Plus axe-core for accessibility in Standalone, and Lighthouse scores in Connected. The closed loop also gives you a pixel-level before/after visual delta on re-verify.
 
