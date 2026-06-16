@@ -84,6 +84,34 @@ describe("MCP server · selection pull", () => {
     expect(text).toMatch(/clean but cramped/);
     await client.close();
   });
+
+  it("flows a selection published over the WS bridge into MCP get_selection via one shared store", async () => {
+    const store = createSelectionStore();
+    const server = createServer(store);
+    const [clientT, serverT] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "test", version: "0" }, { capabilities: {} });
+    await Promise.all([server.connect(serverT), client.connect(clientT)]);
+
+    const wss = startBridge(0, store);
+    const port = await listeningPort(wss);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}`);
+    const packet = buildPacket(badButton, analyzeElement(badButton));
+
+    await new Promise<void>((resolve, reject) => {
+      ws.on("open", () => ws.send(JSON.stringify({ type: "publish-selection", id: 1, packet })));
+      ws.on("message", () => resolve());
+      ws.on("error", reject);
+    });
+
+    const res = await client.callTool({ name: "goldeye_get_selection", arguments: {} });
+    const text = (res.content as Array<{ text: string }>)[0]?.text ?? "";
+    expect(text).toMatch(/contrast/i);
+    expect(text).toMatch(/\.ghost/);
+
+    await client.close();
+    ws.close();
+    await new Promise<void>((r) => wss.close(() => r()));
+  });
 });
 
 describe("WebSocket bridge", () => {

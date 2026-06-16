@@ -35,6 +35,16 @@ docs/adr/0001 and in Engram (topic_key architecture/goldeye-loop).
 Register goldeye as an MCP server in your agent, select an element in the Lens, the
 agent calls goldeye_get_selection, edits its own repo, then calls goldeye_reverify.
 
+Verification status (be precise): the in-process seam (WS publish -> shared store ->
+MCP get_selection) is unit-tested, and the SPAWN fallback (runDispatch -> claude/codex
+edits source -> re-judge) ran live with Claude Code and passed. The full PULL path with
+a real browser plus a real agent session has NOT been run end to end yet. Caveat: the
+documented `claude mcp add --transport stdio ... serve` spawns serve PER agent, and that
+subprocess binds :8791 for the browser. So Connected mode only works while an agent
+session is up, and you must NOT also run a separate `pnpm serve` (it would fail to bind
+:8791 and the agent would read an empty store). A long-running serve daemon with an
+HTTP/SSE MCP transport is the recommended follow-up to make pull robust.
+
 ## Remaining (honest)
 - The page snapshot now captures per-color frequency (colorUsage), so accent-spread
   (the deterministic core of 60-30-10: limit competing saturated accents) and

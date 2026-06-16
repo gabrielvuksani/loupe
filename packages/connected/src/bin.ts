@@ -9,7 +9,7 @@ function launchBridge(): void {
   const wss = startBridge(8791, store);
   wss.on("error", (e: unknown) => console.error(`goldeye · bridge error: ${String(e)}`));
   wss.on("listening", () =>
-    console.error("goldeye · WebSocket bridge on ws://localhost:8791"),
+    console.error("goldeye · WebSocket bridge on ws://127.0.0.1:8791"),
   );
 }
 
