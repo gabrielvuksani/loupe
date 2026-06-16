@@ -12,6 +12,7 @@ import {
 } from "@goldeye/engine";
 import axe from "axe-core";
 import { popoverHtml } from "./lib/view";
+import { cropRect } from "./lib/crop";
 import { axeViolationsToFindings, type AxeViolation } from "./lib/axe-findings";
 
 // Content script: capture, run the engine in-page, show the popover, and react
@@ -62,6 +63,8 @@ export default defineContentScript({
         background: rgba(232,181,74,.12); padding: 2px 6px; border-radius: 5px; flex: 1;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .ge-score { font-weight: 700; }
+      .ge-shot { display: block; width: 100%; max-height: 150px; object-fit: contain;
+        margin: 9px 0 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.25); }
       .ge-text { color: #aab2c0; font-size: 11.5px; margin: 7px 0; }
       .ge-finding { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.1);
         border-radius: 10px; padding: 9px 10px; margin: 8px 0; }
@@ -135,8 +138,13 @@ export default defineContentScript({
       name: accessibleName(el),
     });
     const sourceOf = (el: Element): { file: string; line?: number } | undefined => {
+      // Attribute-based: data-source, plus vite-plugin react/vue inspectors.
       const ds = el.getAttribute("data-source") || el.getAttribute("data-inspector-relative-path");
-      if (ds) return { file: ds };
+      if (ds) {
+        const ln = Number(el.getAttribute("data-inspector-line"));
+        return Number.isFinite(ln) && ln > 0 ? { file: ds, line: ln } : { file: ds };
+      }
+      // React: the fiber's _debugSource from the dev JSX transform.
       const key = Object.keys(el).find(
         (k) => k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$"),
       );
@@ -147,6 +155,12 @@ export default defineContentScript({
         const src = fiber?._debugSource;
         if (src?.fileName) return src.lineNumber ? { file: src.fileName, line: src.lineNumber } : { file: src.fileName };
       }
+      // Vue 3: the dev vnode carries its component's SFC path on __file.
+      const vnode = (el as unknown as Record<string, unknown>)["__vnode"] as
+        | { type?: { __file?: string } }
+        | undefined;
+      const vfile = vnode?.type?.__file;
+      if (vfile) return { file: vfile };
       return undefined;
     };
     const snapshotOf = (el: Element): ElementSnapshot => {
@@ -179,11 +193,7 @@ export default defineContentScript({
         img.onload = () => {
           try {
             const dpr = window.devicePixelRatio || 1;
-            const pad = 6 * dpr;
-            const sx = Math.max(0, r.left * dpr - pad);
-            const sy = Math.max(0, r.top * dpr - pad);
-            const sw = Math.min(img.width - sx, r.width * dpr + pad * 2);
-            const sh = Math.min(img.height - sy, r.height * dpr + pad * 2);
+            const { sx, sy, sw, sh } = cropRect(r, dpr, img, 6);
             const canvas = document.createElement("canvas");
             canvas.width = sw;
             canvas.height = sh;

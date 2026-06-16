@@ -21,6 +21,13 @@ export interface PopoverOpts {
   agent: string;
 }
 
+// Only render a same-origin data-image URL. The prefix check rejects javascript:
+// and other schemes before they reach src; escapeHtml stays for consistency.
+export function screenshotImg(screenshot: string | undefined): string {
+  if (!screenshot || !screenshot.startsWith("data:image/")) return "";
+  return `<img class="ge-shot" alt="" src="${escapeHtml(screenshot)}" />`;
+}
+
 // The popover's inner HTML for a selected element: verdict, findings, actions.
 // Every interpolated value is escaped; the host page never injects markup.
 export function popoverHtml(packet: ElementPacket, opts: PopoverOpts): string {
@@ -31,11 +38,13 @@ export function popoverHtml(packet: ElementPacket, opts: PopoverOpts): string {
     ? `<button class="ge-act ge-gold" data-action="send">Send to ${escapeHtml(opts.agent)}</button>`
     : "";
   const text = packet.text ? `<div class="ge-text">"${escapeHtml(packet.text)}"</div>` : "";
+  const shot = screenshotImg(packet.screenshot);
   return `<div class="ge-head">
       <span class="ge-tag">${escapeHtml(packet.tag)}</span>
       <span class="ge-sel">${escapeHtml(packet.selector)}</span>
       <span class="ge-score">${packet.score}/100</span>
     </div>
+    ${shot}
     ${text}
     <div class="ge-findings">${findings}</div>
     <div class="ge-actions">${send}

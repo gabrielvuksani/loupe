@@ -36,4 +36,24 @@ describe("popoverHtml", () => {
     expect(html).not.toContain("<script>bad");
     expect(html).toContain("&lt;");
   });
+
+  it("renders the screenshot img when the packet has a data-image URL", () => {
+    const dataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==";
+    const shot = { ...packet, screenshot: dataUrl };
+    const html = popoverHtml(shot, { connected: false, agent: "Codex" });
+    expect(html).toContain("<img");
+    expect(html).toContain(dataUrl);
+  });
+
+  it("renders no img when the packet has no screenshot", () => {
+    const html = popoverHtml(packet, { connected: false, agent: "Codex" });
+    expect(html).not.toContain("<img");
+  });
+
+  it("ignores a screenshot that is not a data-image URL", () => {
+    const evil = { ...packet, screenshot: "javascript:alert(1)" };
+    const html = popoverHtml(evil, { connected: false, agent: "Codex" });
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain("javascript:");
+  });
 });
