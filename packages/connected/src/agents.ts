@@ -58,17 +58,33 @@ export function runDispatch(
   agent: AgentName,
   packet: ElementPacket,
   cwd: string,
+  timeoutMs = 600000,
 ): Promise<DispatchResult> {
   const { cmd, args } = composeDispatch(agent, packet, cwd);
   return new Promise((resolve) => {
+    const MAX_OUTPUT = 1_000_000;
     const child = spawn(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
-    child.stdout?.on("data", (d) => (stdout += String(d)));
-    child.stderr?.on("data", (d) => (stderr += String(d)));
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const cap = (s: string, d: unknown): string =>
+      s.length >= MAX_OUTPUT ? s : (s + String(d)).slice(0, MAX_OUTPUT);
+    const finish = (r: DispatchResult): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(r);
+    };
+    timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      finish({ ok: false, code: null, stdout, stderr: `${cmd} timed out after ${timeoutMs}ms` });
+    }, timeoutMs);
+    child.stdout?.on("data", (d) => (stdout = cap(stdout, d)));
+    child.stderr?.on("data", (d) => (stderr = cap(stderr, d)));
     child.on("error", (e) =>
-      resolve({ ok: false, code: null, stdout, stderr: `${cmd} not available: ${e.message}` }),
+      finish({ ok: false, code: null, stdout, stderr: `${cmd} not available: ${e.message}` }),
     );
-    child.on("close", (code) => resolve({ ok: code === 0, code, stdout, stderr }));
+    child.on("close", (code) => finish({ ok: code === 0, code, stdout, stderr }));
   });
 }

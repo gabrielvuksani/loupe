@@ -1,5 +1,5 @@
 import { WebSocketServer, type WebSocket } from "ws";
-import { analyzeElement, analyzePage, buildPacket, type ElementPacket } from "@goldeye/engine";
+import { analyzeElement, analyzePage, buildPacket, scoreFindings, type ElementPacket } from "@goldeye/engine";
 import { createSelectionStore, type SelectionStore } from "./selection-store";
 import { runDispatch, type AgentName } from "./agents";
 
@@ -9,7 +9,15 @@ export function startBridge(
   port = 8791,
   store: SelectionStore = createSelectionStore(),
 ): WebSocketServer {
-  const wss = new WebSocketServer({ port });
+  const wss = new WebSocketServer({
+    port,
+    host: "127.0.0.1",
+    // Only the extension (chrome-extension://) or a local non-browser client
+    // (no Origin header, e.g. tests) may connect. This rejects any visited web
+    // page, which could otherwise drive the dispatch handler as a drive-by RCE.
+    verifyClient: (info: { origin?: string }) =>
+      !info.origin || info.origin.startsWith("chrome-extension://"),
+  });
   wss.on("connection", (ws: WebSocket) => {
     ws.on("message", (data) => {
       let msg: {
@@ -27,6 +35,13 @@ export function startBridge(
         return;
       }
       try {
+        if (
+          (msg.type === "analyze-element" || msg.type === "analyze-page") &&
+          (typeof msg.snapshot !== "object" || msg.snapshot === null)
+        ) {
+          ws.send(JSON.stringify({ type: "error", id: msg.id, message: `${msg.type} needs a snapshot object` }));
+          return;
+        }
         if (msg.type === "analyze-element") {
           const findings = analyzeElement(msg.snapshot as never);
           ws.send(
@@ -38,8 +53,14 @@ export function startBridge(
             }),
           );
         } else if (msg.type === "analyze-page") {
+          const pageFindings = analyzePage(msg.snapshot as never);
           ws.send(
-            JSON.stringify({ type: "result", id: msg.id, findings: analyzePage(msg.snapshot as never) }),
+            JSON.stringify({
+              type: "result",
+              id: msg.id,
+              findings: pageFindings,
+              score: scoreFindings(pageFindings),
+            }),
           );
         } else if (msg.type === "publish-selection") {
           store.set((msg.packet as ElementPacket | undefined) ?? null);

@@ -67,7 +67,7 @@ function setMode(m: Mode): void {
 }
 function connectWs(): void {
   try {
-    ws = new WebSocket("ws://localhost:8791");
+    ws = new WebSocket("ws://127.0.0.1:8791");
     ws.addEventListener("open", () => toast("Engine connected"));
     ws.addEventListener("error", () =>
       toast("Engine offline. Start: pnpm --filter @goldeye/connected serve"),

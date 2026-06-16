@@ -192,9 +192,24 @@ function screenshot(page: Page): Promise<Buffer> {
   return page.screenshot({ type: "png" });
 }
 
+// Refuse to render anything but http(s): blocks file:// and other local schemes
+// an agent-supplied URL could use to reach the host machine.
+function assertHttpUrl(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Invalid URL: ${url}`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`Refusing to render a non-http(s) URL: ${url}`);
+  }
+}
+
 // The loop on a real render: judge, apply the computed fixes to the live DOM,
 // re-judge. When fixes are omitted they are derived from the first analysis.
 export async function reverifyAfterFix(url: string, fixes?: AppliedFix[]): Promise<ReverifyReport> {
+  assertHttpUrl(url);
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
@@ -235,6 +250,7 @@ export async function reverifyAfterFix(url: string, fixes?: AppliedFix[]): Promi
 
 // Render a URL, run the engine, axe-core, and Lighthouse.
 export async function renderAndAnalyze(url: string): Promise<UrlReport> {
+  assertHttpUrl(url);
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();

@@ -13,6 +13,14 @@ const badButton = {
   styles: { color: "rgb(174, 182, 194)", backgroundColor: "rgb(255, 255, 255)" },
 };
 
+function listeningPort(wss: ReturnType<typeof startBridge>): Promise<number> {
+  return new Promise((resolve) => {
+    const addr = wss.address();
+    if (addr && typeof addr === "object") return resolve(addr.port);
+    wss.once("listening", () => resolve((wss.address() as { port: number }).port));
+  });
+}
+
 describe("MCP server", () => {
   it("lists tools and analyzes an element over the protocol", async () => {
     const server = createServer();
@@ -81,7 +89,7 @@ describe("MCP server · selection pull", () => {
 describe("WebSocket bridge", () => {
   it("returns engine findings for a streamed element", async () => {
     const wss = startBridge(0);
-    const port = (wss.address() as { port: number }).port;
+    const port = await listeningPort(wss);
     const ws = new WebSocket(`ws://127.0.0.1:${port}`);
 
     const result = await new Promise<{ findings: Array<{ ruleId: string }> }>((resolve, reject) => {
@@ -99,7 +107,7 @@ describe("WebSocket bridge", () => {
 
   it("rejects a dispatch missing the project root with a helpful status", async () => {
     const wss = startBridge(0);
-    const port = (wss.address() as { port: number }).port;
+    const port = await listeningPort(wss);
     const ws = new WebSocket(`ws://127.0.0.1:${port}`);
 
     const result = await new Promise<{ phase: string; message?: string }>((resolve, reject) => {
@@ -112,6 +120,37 @@ describe("WebSocket bridge", () => {
 
     expect(result.phase).toBe("error");
     expect(result.message).toMatch(/project root/i);
+    ws.close();
+    await new Promise<void>((r) => wss.close(() => r()));
+  });
+
+  it("rejects a connection from a web-page origin so a visited site cannot dispatch", async () => {
+    const wss = startBridge(0);
+    const port = await listeningPort(wss);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}`, { origin: "https://evil.example" });
+
+    const rejected = await new Promise<boolean>((resolve) => {
+      ws.on("open", () => resolve(false));
+      ws.on("error", () => resolve(true));
+      ws.on("unexpected-response", () => resolve(true));
+    });
+
+    expect(rejected).toBe(true);
+    ws.close();
+    await new Promise<void>((r) => wss.close(() => r()));
+  });
+
+  it("allows the extension origin", async () => {
+    const wss = startBridge(0);
+    const port = await listeningPort(wss);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}`, { origin: "chrome-extension://abc123" });
+
+    const opened = await new Promise<boolean>((resolve) => {
+      ws.on("open", () => resolve(true));
+      ws.on("error", () => resolve(false));
+    });
+
+    expect(opened).toBe(true);
     ws.close();
     await new Promise<void>((r) => wss.close(() => r()));
   });
