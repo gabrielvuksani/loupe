@@ -1,11 +1,13 @@
 # goldeye next session: close every gap, autonomously
 
-> Status 2026-06-16: the loop, pull-MCP dispatch, the on-page popover, the expanded
-> packet, axe in Standalone, the OKLCH fix, APCA, the agent taste seam, the spacing-scale
-> rule, and the ADR are all done and green. Remaining: the cross-browser rule
-> (@mdn/browser-compat-data + browserslist + @projectwallace/css-analyzer), pixelmatch,
-> the fuzzy Refactoring-UI rules (deferred to the agent taste layer on purpose), and the
-> live agent-applies-then-reverify e2e. See HANDOFF.md "Remaining" for the honest list.
+> Status 2026-06-16: effectively complete. The loop, pull-MCP dispatch, popover,
+> expanded packet, axe in Standalone, OKLCH + APCA, the agent taste seam, the taste
+> rules (spacing-scale, line-length, semantic-tag, color-count), the cross-browser rule
+> (browser-compat-data + browserslist + projectwallace), the pixelmatch visual delta,
+> the ADR, and a live agent-applies-then-reverify e2e (run with Claude Code) are all done
+> and green. Only deferred: three fuzzy taste rules (hierarchy levers, 60-30-10 accent
+> ratio, shades-per-color) that need color-frequency data, left to the agent taste layer
+> by design. See HANDOFF.md "Remaining".
 
 Mandate: complete this whole list end to end without checking in. The v0 substrate
 (engine, connected, extension) is built and green. This pass closes the gaps the

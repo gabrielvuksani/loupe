@@ -8,15 +8,20 @@ docs/adr/0001 and in Engram (topic_key architecture/goldeye-loop).
 - packages/engine: deterministic detection plus fix computation. OKLCH hue-preserving
   contrast fix (culori) with a blend alternative, APCA advisory signal (apca-w3),
   contrast / target-size / large-text, and taste rules (font count, weights, type
-  scale, spacing-scale). reverifyElement is the pure loop primitive.
+  scale, spacing-scale, line-length, semantic-tag, color-count). reverifyElement is
+  the pure loop primitive.
 - packages/connected: ONE serve process = WS bridge (:8791) + MCP server sharing a
   selection store. Tools: get_selection, reverify, score_taste, analyze_url,
-  analyze_element. reverifyAfterFix applies fixes to a real render and re-judges.
-  Agent dispatch (composeDispatch / runDispatch) for Claude Code, Codex, OpenCode.
+  analyze_element. reverifyAfterFix applies fixes to a real render and re-judges,
+  returning a pixelmatch visual delta. renderAndAnalyze also runs a cross-browser
+  rule (browser-compat-data + browserslist + projectwallace css-analyzer). Agent
+  dispatch (composeDispatch / runDispatch) for Claude Code, Codex, OpenCode.
 - packages/extension: WXT MV3 Lens. On-page shadow-DOM popover with full actions,
   axe-core in Standalone, a11y node + source + screenshot capture, publishes the
   selection and dispatches over the bridge. Side panel mirrors the selection.
-- 39 unit tests, 4 real-browser integration tests, all green. Typecheck clean.
+- 65 unit tests and 4 real-browser integration tests are green; a 5th gated
+  live-dispatch e2e was run live with Claude Code and passed. Typecheck clean across
+  all 3 packages.
 
 ## Run
 - pnpm install
@@ -29,19 +34,19 @@ docs/adr/0001 and in Engram (topic_key architecture/goldeye-loop).
 Register goldeye as an MCP server in your agent, select an element in the Lens, the
 agent calls goldeye_get_selection, edits its own repo, then calls goldeye_reverify.
 
-## Remaining (honest, not done)
-- Cross-browser rule (@mdn/browser-compat-data + browserslist + @projectwallace/css-analyzer)
-  is NOT built. It is a connected-only feature (BCD is large; the engine must stay light
-  for the content-script bundle). The "cross-browser" Finding category exists but has no rule yet.
-- pixelmatch visual diff in the re-verify step is NOT built.
-- element-source is implemented INLINE (React fiber _debugSource and data-source attrs),
-  not via the npm package. Same behavior, one fewer dep. Documented choice, not the lib.
-- The full Refactoring-UI taste set is PARTIAL. spacing-scale was added; line-length,
-  accent-count, hierarchy levers, semantic-tag-vs-role, and shades-per-color were
-  deferred on purpose: they are fuzzy and would risk the zero-false-positive guard, so
-  the subjective half is handled by the agent taste score instead (the thesis).
-- The live end-to-end agent-applies-then-reverify is MANUAL. composeDispatch is
-  unit-tested per agent; the real spawn is opt-in (it edits files and spends tokens).
+## Remaining (honest)
+- Three fuzzy Refactoring-UI rules are still deferred: hierarchy levers, the 60-30-10
+  accent ratio, and shades-per-color. They need color-frequency data the snapshot does
+  not capture and would risk the zero-false-positive guard, so the subjective half is
+  the agent taste score by design (the thesis). spacing-scale, line-length, semantic-tag,
+  and color-count are built.
+- element-source: the npm package (0.0.5, no repository or docs) was deliberately NOT
+  adopted. The inline React-fiber _debugSource and data-source detection is used instead.
+- The live agent-applies-then-reverify e2e is GATED behind GOLDEYE_LIVE_DISPATCH=1 so it
+  does not run in normal CI (it spawns an agent that edits files and spends tokens). It
+  was run live with Claude Code on 2026-06-16 and passed end to end: the agent edited the
+  fixture CSS, goldeye re-rendered, the contrast finding cleared and the score rose. Codex
+  was blocked by an account usage limit that day, not a goldeye defect.
 
 ## Gotchas
 - Extension service workers need headed Chromium in Playwright tests; headless does not load them.
