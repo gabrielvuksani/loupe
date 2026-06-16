@@ -12,6 +12,11 @@ import { createSelectionStore, type SelectionStore } from "./selection-store";
 
 export const DEFAULT_HTTP_PORT = 8792;
 
+// A single user never has dozens of live agent sessions, so cap the map. This
+// keeps a long-running daemon from accumulating dead sessions left by agents
+// that dropped their connection without sending a DELETE.
+const MAX_SESSIONS = 32;
+
 // One long-running MCP endpoint over HTTP so any number of agents attach to the
 // same daemon (and the same selection store) without each spawning their own
 // process. This replaces the fragile stdio model where every agent spawned a
@@ -60,6 +65,14 @@ export function startHttpMcp(
           sessionIdGenerator: () => randomUUID(),
           enableJsonResponse: true,
           onsessioninitialized: (id) => {
+            if (sessions.size >= MAX_SESSIONS) {
+              const oldest = sessions.keys().next().value;
+              if (oldest) {
+                const stale = sessions.get(oldest);
+                sessions.delete(oldest);
+                void stale?.close();
+              }
+            }
             sessions.set(id, fresh);
           },
         });
