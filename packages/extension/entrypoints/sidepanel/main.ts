@@ -8,6 +8,7 @@ let agent = "Claude Code";
 let inspecting = false;
 let ws: WebSocket | null = null;
 let lastPacket: { packet: ElementPacket; markdown: string } | null = null;
+let lastSelectorScore: { selector: string; score: number } | null = null;
 
 async function activeTabId(): Promise<number | undefined> {
   const [t] = await browser.tabs.query({ active: true, currentWindow: true });
@@ -136,10 +137,18 @@ function renderAudit(findings: Finding[], score: Score): void {
 
 function renderPacket(packet: ElementPacket, markdown: string): void {
   lastPacket = { packet, markdown };
+  // Same element re-judged with a different score is the re-verify climb.
+  const climb =
+    lastSelectorScore &&
+    lastSelectorScore.selector === packet.selector &&
+    lastSelectorScore.score !== packet.score
+      ? ` · ${lastSelectorScore.score} → ${packet.score}`
+      : "";
+  lastSelectorScore = { selector: packet.selector, score: packet.score };
   $("scoreHost").innerHTML = scoreCard(
     packet.score,
     `${packet.tag} · ${packet.selector}`,
-    `${packet.findings.length} finding(s)`,
+    `${packet.findings.length} finding(s)${climb}`,
   );
   const dispatchBtn = `<div class="finding"><div class="row">
     <button class="act gold" id="dispatch" style="flex:1">${mode === "connected" ? "Send to " + escapeHtml(agent) : "Copy element packet"}</button>
