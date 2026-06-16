@@ -1,3 +1,5 @@
+import * as net from "node:net";
+import * as dns from "node:dns";
 import { chromium, type Page } from "playwright";
 import { AxeBuilder } from "@axe-core/playwright";
 import { analyze as analyzeCss } from "@projectwallace/css-analyzer";
@@ -206,10 +208,111 @@ function assertHttpUrl(url: string): void {
   }
 }
 
+// GCP metadata hostnames that resolve to 169.254.169.254. Blocked by name so a
+// match never depends on DNS returning the link-local IP.
+const METADATA_HOSTS = new Set(["metadata.google.internal", "metadata.goog"]);
+
+// Decode a non-dotted-quad IPv4 literal (decimal, octal, or hex integer) into a
+// 32-bit address. Returns null when the string is not such a form. Mirrors the
+// permissive inet_aton parsing that http stacks accept, so an encoded
+// 169.254.0.0/16 address cannot slip past the dotted-quad check.
+function decodeIntegerIpv4(host: string): number | null {
+  const s = host.trim();
+  if (s === "") return null;
+  let value: number;
+  if (/^0x[0-9a-f]+$/i.test(s)) value = Number.parseInt(s, 16);
+  else if (/^0[0-7]+$/.test(s)) value = Number.parseInt(s, 8);
+  else if (/^[1-9][0-9]*$/.test(s) || s === "0") value = Number.parseInt(s, 10);
+  else return null;
+  if (!Number.isInteger(value) || value < 0 || value > 0xffffffff) return null;
+  return value >>> 0;
+}
+
+// True for 169.254.0.0/16 given the 32-bit host order address.
+function isIpv4LinkLocal(addr32: number): boolean {
+  return (addr32 >>> 16) === 0xa9fe;
+}
+
+// Dotted-quad string to a 32-bit address, or null if not four 0-255 octets.
+function dottedQuadTo32(ip: string): number | null {
+  const parts = ip.split(".");
+  if (parts.length !== 4) return null;
+  let addr = 0;
+  for (const part of parts) {
+    if (!/^[0-9]{1,3}$/.test(part)) return null;
+    const n = Number(part);
+    if (n > 255) return null;
+    addr = (addr << 8) | n;
+  }
+  return addr >>> 0;
+}
+
+// True for an address goldeye must never render: IPv4 link-local 169.254.0.0/16
+// (the cloud metadata range, including encoded and IPv4-mapped IPv6 forms) and
+// IPv6 link-local fe80::/10. Loopback and RFC1918 are deliberately allowed: the
+// legitimate render target is the user's own dev server. Pure and synchronous.
+export function isBlockedAddress(ip: string): boolean {
+  const kind = net.isIP(ip);
+
+  if (kind === 4) {
+    const addr = dottedQuadTo32(ip);
+    return addr !== null && isIpv4LinkLocal(addr);
+  }
+
+  if (kind === 6) {
+    const lower = ip.toLowerCase();
+    // IPv4-mapped (::ffff:a.b.c.d): re-check the embedded IPv4.
+    const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+    if (mapped) {
+      const addr = dottedQuadTo32(mapped[1]!);
+      return addr !== null && isIpv4LinkLocal(addr);
+    }
+    // fe80::/10: first 10 bits are 1111111010.
+    return lower.startsWith("fe8") || lower.startsWith("fe9") || lower.startsWith("fea") || lower.startsWith("feb");
+  }
+
+  // Not a literal net.isIP accepts: try integer-encoded IPv4 (decimal/octal/hex).
+  const encoded = decodeIntegerIpv4(ip);
+  return encoded !== null && isIpv4LinkLocal(encoded);
+}
+
+// Full pre-render guard: http(s) scheme, then DNS-resolve the hostname and
+// refuse if any resolved address is link-local/metadata. Resolving every
+// address defeats DNS rebinding (a name that answers public once then link-local
+// on the render fetch). DNS failures are not treated as blocks: the render is
+// allowed to proceed and Playwright fails on its own.
+export async function assertRenderableUrl(url: string): Promise<void> {
+  assertHttpUrl(url);
+  const host = new URL(url).hostname;
+
+  const normalizedHost = host.replace(/^\[|\]$/g, "").toLowerCase();
+  if (METADATA_HOSTS.has(normalizedHost)) {
+    throw new Error(`Refusing to render a link-local/metadata address: ${host}`);
+  }
+
+  // A literal IP host never needs DNS; check it directly.
+  if (net.isIP(normalizedHost) !== 0 && isBlockedAddress(normalizedHost)) {
+    throw new Error(`Refusing to render a link-local/metadata address: ${host}`);
+  }
+
+  let resolved: Array<{ address: string }>;
+  try {
+    resolved = await dns.promises.lookup(host, { all: true });
+  } catch {
+    return; // DNS failure: let the render attempt fail naturally.
+  }
+
+  for (const { address } of resolved) {
+    if (isBlockedAddress(address)) {
+      throw new Error(`Refusing to render a link-local/metadata address: ${host} -> ${address}`);
+    }
+  }
+}
+
 // The loop on a real render: judge, apply the computed fixes to the live DOM,
 // re-judge. When fixes are omitted they are derived from the first analysis.
 export async function reverifyAfterFix(url: string, fixes?: AppliedFix[]): Promise<ReverifyReport> {
-  assertHttpUrl(url);
+  await assertRenderableUrl(url);
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
@@ -250,7 +353,7 @@ export async function reverifyAfterFix(url: string, fixes?: AppliedFix[]): Promi
 
 // Render a URL, run the engine, axe-core, and Lighthouse.
 export async function renderAndAnalyze(url: string): Promise<UrlReport> {
-  assertHttpUrl(url);
+  await assertRenderableUrl(url);
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
