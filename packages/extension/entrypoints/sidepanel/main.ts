@@ -7,6 +7,7 @@ let mode: Mode = "standalone";
 let agent = "Claude Code";
 let inspecting = false;
 let ws: WebSocket | null = null;
+let wsReconnect: ReturnType<typeof setTimeout> | null = null;
 let lastPacket: { packet: ElementPacket; markdown: string } | null = null;
 let lastSelectorScore: { selector: string; score: number } | null = null;
 let lastPageScore: number | null = null;
@@ -68,11 +69,19 @@ function setMode(m: Mode): void {
   pushMode();
   if (m === "connected") connectWs();
   else {
+    if (wsReconnect) {
+      clearTimeout(wsReconnect);
+      wsReconnect = null;
+    }
     ws?.close();
     ws = null;
   }
 }
 function connectWs(): void {
+  if (wsReconnect) {
+    clearTimeout(wsReconnect);
+    wsReconnect = null;
+  }
   try {
     const token = ($("token") as HTMLInputElement).value.trim();
     const url = token
@@ -80,9 +89,16 @@ function connectWs(): void {
       : "ws://127.0.0.1:8791";
     ws = new WebSocket(url);
     ws.addEventListener("open", () => toast("Engine connected"));
-    ws.addEventListener("error", () =>
-      toast("Engine offline. Run: loupe serve"),
-    );
+    ws.addEventListener("error", () => toast("Engine offline. Run: loupe serve"));
+    ws.addEventListener("close", () => {
+      // Reconnect while still in Connected mode, e.g. after the daemon restarts.
+      if (mode === "connected" && !wsReconnect) {
+        wsReconnect = setTimeout(() => {
+          wsReconnect = null;
+          connectWs();
+        }, 3000);
+      }
+    });
     ws.addEventListener("message", (e) => {
       try {
         const m = JSON.parse(String(e.data)) as { type?: string; phase?: string; message?: string };

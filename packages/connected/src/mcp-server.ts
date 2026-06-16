@@ -26,7 +26,7 @@ export function createServer(store: SelectionStore = createSelectionStore()): Se
       {
         name: "loupe_get_selection",
         description:
-          "Pull the element currently selected in the loupe Lens: its findings, computed fixes, and source hint. Call this to act on what the user picked in the browser.",
+          "Pull what the user selected in the loupe Lens: the element's findings and exact computed fixes, a unique selector to target it, its on-screen position, the accessible role and name, a cropped screenshot, the source file and line when a dev build exposes it, and the user's requested change. This is everything you need to make the edit without guessing which element. Call it first.",
         inputSchema: { type: "object", properties: {} },
       },
       {
