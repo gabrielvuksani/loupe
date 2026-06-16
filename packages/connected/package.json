@@ -1,18 +1,27 @@
 {
-  "name": "@loupe/connected",
-  "version": "0.0.0",
-  "private": true,
+  "name": "loupe-cli",
+  "version": "0.1.0",
   "type": "module",
-  "description": "loupe connected engine. MCP server and WebSocket bridge. Real Playwright render, axe-core, and Lighthouse, working out of the box.",
+  "description": "loupe: deterministic design and accessibility detection with a real-browser render loop, exposed as an MCP server and WebSocket bridge for your CLI agent.",
+  "keywords": ["design", "accessibility", "a11y", "mcp", "playwright", "lighthouse", "axe", "design-qa", "lens"],
+  "homepage": "https://github.com/gabrielvuksani/loupe#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gabrielvuksani/loupe.git",
+    "directory": "packages/connected"
+  },
   "bin": {
     "loupe": "./dist/bin.js",
     "loupe-connected": "./dist/bin.js"
   },
   "files": ["dist"],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "vitest run",
     "build": "node build.mjs",
-    "prepublishOnly": "node build.mjs",
+    "prepack": "node build.mjs",
     "mcp": "tsx src/bin.ts --mcp",
     "bridge": "tsx src/bin.ts --bridge",
     "serve": "tsx src/bin.ts --serve",
@@ -20,7 +29,6 @@
   },
   "dependencies": {
     "@axe-core/playwright": "^4.10.1",
-    "@loupe/engine": "workspace:*",
     "@mdn/browser-compat-data": "^8.0.3",
     "@modelcontextprotocol/sdk": "^1.12.0",
     "@projectwallace/css-analyzer": "^9.9.0",
@@ -33,6 +41,7 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@loupe/engine": "workspace:*",
     "@types/pngjs": "^6.0.5",
     "@types/ws": "^8.5.13",
     "esbuild": "^0.28.1",

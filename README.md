@@ -56,9 +56,9 @@ process and no port contention.
 loupe serve     # WS bridge (ws://127.0.0.1:8791) + MCP over HTTP (http://127.0.0.1:8792/mcp)
 ```
 
-From the repo: `pnpm --filter @loupe/connected serve`. As a standalone CLI:
-`pnpm --filter @loupe/connected build`, then `node packages/connected/dist/bin.js serve`
-(the bundle is self-contained; publish the package to get `npx loupe serve`).
+From the repo: `pnpm --filter loupe-cli serve`. As a standalone CLI:
+`pnpm --filter loupe-cli build`, then `node packages/connected/dist/bin.js serve`
+(the bundle is self-contained; publish the package to get `npx loupe-cli serve`).
 
 Tools the agent calls from its own session:
 
@@ -89,7 +89,7 @@ codex mcp add loupe --url http://127.0.0.1:8792/mcp
 The loop is pull-primary: select an element in the Lens, your running agent pulls it, edits
 its own repo, and calls `loupe_reverify` to show the score climb. No LLM credentials leave
 your machine. For sessions where no agent is attached, a bare stdio server
-(`pnpm --filter @loupe/connected mcp`) and a spawn fallback (`claude -p`, `codex exec`)
+(`pnpm --filter loupe-cli mcp`) and a spawn fallback (`claude -p`, `codex exec`)
 remain. The WS bridge binds loopback and accepts only `chrome-extension://` origins; the HTTP
 endpoint rejects any request that carries a browser `Origin` header. For extra hardening,
 `loupe serve --token` prints a one-time token the bridge then requires; paste it into the

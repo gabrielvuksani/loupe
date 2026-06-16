@@ -23,9 +23,6 @@ importers:
       '@axe-core/playwright':
         specifier: ^4.10.1
         version: 4.11.3(playwright-core@1.61.0)
-      '@loupe/engine':
-        specifier: workspace:*
-        version: link:../engine
       '@mdn/browser-compat-data':
         specifier: ^8.0.3
         version: 8.0.3
@@ -57,6 +54,9 @@ importers:
         specifier: ^8.18.0
         version: 8.21.0
     devDependencies:
+      '@loupe/engine':
+        specifier: workspace:*
+        version: link:../engine
       '@types/pngjs':
         specifier: ^6.0.5
         version: 6.0.5

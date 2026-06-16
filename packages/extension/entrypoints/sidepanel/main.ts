@@ -80,7 +80,7 @@ function connectWs(): void {
     ws = new WebSocket(url);
     ws.addEventListener("open", () => toast("Engine connected"));
     ws.addEventListener("error", () =>
-      toast("Engine offline. Start: pnpm --filter @loupe/connected serve"),
+      toast("Engine offline. Run: loupe serve"),
     );
     ws.addEventListener("message", (e) => {
       try {
@@ -181,7 +181,7 @@ function doDispatch(): void {
       ws.send(JSON.stringify({ type: "dispatch", agent, packet: lastPacket.packet, cwd }));
       toast(`Dispatched to ${agent}`);
     } else {
-      toast("Engine offline. Start: pnpm --filter @loupe/connected serve");
+      toast("Engine offline. Run: loupe serve");
     }
   } else {
     void navigator.clipboard

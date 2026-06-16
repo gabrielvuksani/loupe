@@ -8,3 +8,4 @@ coverage/
 .output/
 prototypes/
 BUILD_PLAN.md
+*.tgz

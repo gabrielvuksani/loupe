@@ -33,7 +33,7 @@ docs/adr/0001 and in Engram (topic_key architecture/loupe-loop).
 - pnpm test (97 unit, fast)
 - pnpm test:integration (real browser; 4 pass, gated pull/realworld/dispatch need flags)
 - pnpm --filter @loupe/extension build, then load .output/chrome-mv3 unpacked
-- pnpm --filter @loupe/connected serve  (the daemon: WS bridge :8791 + MCP over HTTP :8792)
+- pnpm --filter loupe-cli serve  (the daemon: WS bridge :8791 + MCP over HTTP :8792)
 - add `--token` for the optional one-time WS token
 
 ## Pull loop, in one line

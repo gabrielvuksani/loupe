@@ -36,7 +36,7 @@ jobs:
         run: pnpm --filter @loupe/engine exec tsc --noEmit
 
       - name: Typecheck connected
-        run: pnpm --filter @loupe/connected exec tsc --noEmit
+        run: pnpm --filter loupe-cli exec tsc --noEmit
 
       - name: Typecheck extension
         run: pnpm --filter @loupe/extension exec tsc --noEmit
@@ -63,7 +63,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Chromium for Playwright
-        run: pnpm --filter @loupe/connected exec playwright install --with-deps chromium
+        run: pnpm --filter loupe-cli exec playwright install --with-deps chromium
 
       # The extension e2e tests load the built MV3 bundle from .output/chrome-mv3.
       - name: Build extension
