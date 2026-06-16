@@ -20,7 +20,7 @@ docs/adr/0001 and in Engram (topic_key architecture/goldeye-loop).
 - packages/extension: WXT MV3 Lens. On-page shadow-DOM popover with full actions,
   axe-core in Standalone, a11y node + source + screenshot capture, publishes the
   selection and dispatches over the bridge. Side panel mirrors the selection.
-- 73 unit tests and 4 real-browser integration tests are green; a 5th gated
+- 74 unit tests and 4 real-browser integration tests are green; a 5th gated
   live-dispatch e2e was run live with Claude Code and passed. Typecheck clean across
   all 3 packages.
 
