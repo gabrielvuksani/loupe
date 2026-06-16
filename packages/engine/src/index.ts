@@ -4,6 +4,7 @@ export { captureElement, capturePage } from "./capture";
 export { contrastRatio } from "./contrast";
 export { scoreFindings } from "./score";
 export { buildPacket, packetToMarkdown } from "./packet";
+export { reverifyElement, applyFix } from "./reverify";
 export type {
   ElementSnapshot,
   ElementStyles,
@@ -15,3 +16,4 @@ export type {
 } from "./types";
 export type { Score } from "./score";
 export type { ElementPacket } from "./packet";
+export type { ReverifyResult } from "./reverify";

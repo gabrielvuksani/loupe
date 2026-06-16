@@ -101,6 +101,63 @@ function captureInPage(): { page: PageSnapshot; elements: ElementSnapshot[] } {
   };
 }
 
+function engineFindings(captured: { page: PageSnapshot; elements: ElementSnapshot[] }): Finding[] {
+  const findings: Finding[] = [...analyzePage(captured.page)];
+  for (const snap of captured.elements) findings.push(...analyzeElement(snap));
+  return findings;
+}
+
+export interface AppliedFix {
+  selector: string;
+  property: string;
+  to: string;
+}
+
+export interface ReverifyReport {
+  url: string;
+  before: { findings: Finding[]; score: Score };
+  after: { findings: Finding[]; score: Score };
+  applied: AppliedFix[];
+}
+
+// The loop on a real render: judge, apply the computed fixes to the live DOM,
+// re-judge. When fixes are omitted they are derived from the first analysis.
+export async function reverifyAfterFix(url: string, fixes?: AppliedFix[]): Promise<ReverifyReport> {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.goto(url, { waitUntil: "load", timeout: 30000 });
+
+    const beforeCap = await page.evaluate(captureInPage);
+    const beforeFindings = engineFindings(beforeCap);
+
+    const applied: AppliedFix[] =
+      fixes ??
+      beforeFindings.flatMap((f) =>
+        f.fix ? [{ selector: f.selector, property: f.fix.property, to: f.fix.to }] : [],
+      );
+
+    await page.evaluate((toApply: AppliedFix[]) => {
+      for (const fx of toApply) {
+        const el = document.querySelector(fx.selector) as HTMLElement | null;
+        if (el) el.style.setProperty(fx.property, fx.to);
+      }
+    }, applied);
+
+    const afterCap = await page.evaluate(captureInPage);
+    const afterFindings = engineFindings(afterCap);
+
+    return {
+      url,
+      before: { findings: beforeFindings, score: scoreFindings(beforeFindings) },
+      after: { findings: afterFindings, score: scoreFindings(afterFindings) },
+      applied,
+    };
+  } finally {
+    await browser.close();
+  }
+}
+
 // Render a URL, run the engine, axe-core, and Lighthouse.
 export async function renderAndAnalyze(url: string): Promise<UrlReport> {
   const browser = await chromium.launch({ headless: true });
@@ -110,8 +167,7 @@ export async function renderAndAnalyze(url: string): Promise<UrlReport> {
 
     const captured = await page.evaluate(captureInPage);
 
-    const findings: Finding[] = [...analyzePage(captured.page)];
-    for (const snap of captured.elements) findings.push(...analyzeElement(snap));
+    const findings = engineFindings(captured);
 
     let axeViolations: Array<{ id: string; impact: string | null; nodes: unknown[]; help: string }> = [];
     try {

@@ -10,10 +10,12 @@ import {
   packetToMarkdown,
   type ElementSnapshot,
 } from "@goldeye/engine";
-import { renderAndAnalyze } from "./playwright-adapter";
+import { renderAndAnalyze, reverifyAfterFix, type AppliedFix } from "./playwright-adapter";
+import { createSelectionStore, type SelectionStore } from "./selection-store";
 
-// goldeye connected engine as an MCP server.
-export function createServer(): Server {
+// goldeye connected engine as an MCP server. The agent calls these from its own
+// session; get_selection pulls whatever the Lens has selected in the browser.
+export function createServer(store: SelectionStore = createSelectionStore()): Server {
   const server = new Server(
     { name: "goldeye", version: "0.0.0" },
     { capabilities: { tools: {} } },
@@ -21,6 +23,37 @@ export function createServer(): Server {
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: [
+      {
+        name: "goldeye_get_selection",
+        description:
+          "Pull the element currently selected in the goldeye Lens: its findings, computed fixes, and source hint. Call this to act on what the user picked in the browser.",
+        inputSchema: { type: "object", properties: {} },
+      },
+      {
+        name: "goldeye_reverify",
+        description:
+          "Re-judge a URL and report the before/after score. Omit fixes for a deterministic self-heal proof; pass an empty fixes array to re-judge the live page after you edited the source.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            url: { type: "string", description: "The URL to re-judge (your dev server)." },
+            fixes: {
+              type: "array",
+              description: "Optional explicit fixes [{selector, property, to}] applied to the render.",
+              items: {
+                type: "object",
+                properties: {
+                  selector: { type: "string" },
+                  property: { type: "string" },
+                  to: { type: "string" },
+                },
+                required: ["selector", "property", "to"],
+              },
+            },
+          },
+          required: ["url"],
+        },
+      },
       {
         name: "goldeye_analyze_url",
         description:
@@ -48,6 +81,18 @@ export function createServer(): Server {
     const name = req.params.name;
     const args = (req.params.arguments ?? {}) as Record<string, unknown>;
     try {
+      if (name === "goldeye_get_selection") {
+        const packet = store.get();
+        const text = packet
+          ? packetToMarkdown(packet)
+          : "No element is currently selected in the goldeye Lens.";
+        return { content: [{ type: "text", text }] };
+      }
+      if (name === "goldeye_reverify") {
+        const fixes = args["fixes"] as AppliedFix[] | undefined;
+        const report = await reverifyAfterFix(String(args["url"]), fixes);
+        return { content: [{ type: "text", text: JSON.stringify(report, null, 2) }] };
+      }
       if (name === "goldeye_analyze_url") {
         const report = await renderAndAnalyze(String(args["url"]));
         return { content: [{ type: "text", text: JSON.stringify(report, null, 2) }] };
@@ -68,6 +113,6 @@ export function createServer(): Server {
   return server;
 }
 
-export async function runMcp(): Promise<void> {
-  await createServer().connect(new StdioServerTransport());
+export async function runMcp(store?: SelectionStore): Promise<void> {
+  await createServer(store).connect(new StdioServerTransport());
 }

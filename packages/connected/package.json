@@ -11,6 +11,7 @@
     "test": "vitest run",
     "mcp": "tsx src/bin.ts --mcp",
     "bridge": "tsx src/bin.ts --bridge",
+    "serve": "tsx src/bin.ts --serve",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -2,8 +2,10 @@ import { describe, it, expect } from "vitest";
 import WebSocket from "ws";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { analyzeElement, buildPacket } from "@goldeye/engine";
 import { createServer } from "../src/mcp-server";
 import { startBridge } from "../src/ws-bridge";
+import { createSelectionStore } from "../src/selection-store";
 
 const badButton = {
   selector: ".ghost",
@@ -27,6 +29,31 @@ describe("MCP server", () => {
     });
     const text = (res.content as Array<{ text: string }>)[0]?.text ?? "";
     expect(text).toMatch(/contrast/i);
+    await client.close();
+  });
+});
+
+describe("MCP server · selection pull", () => {
+  it("returns the element the Lens published, via goldeye_get_selection", async () => {
+    const store = createSelectionStore();
+    const server = createServer(store);
+    const [clientT, serverT] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "test", version: "0" }, { capabilities: {} });
+    await Promise.all([server.connect(serverT), client.connect(clientT)]);
+
+    const tools = await client.listTools();
+    expect(tools.tools.map((t) => t.name)).toContain("goldeye_get_selection");
+
+    const empty = await client.callTool({ name: "goldeye_get_selection", arguments: {} });
+    expect((empty.content as Array<{ text: string }>)[0]?.text ?? "").toMatch(/no element/i);
+
+    // the bridge writes the current selection into the shared store
+    store.set(buildPacket(badButton, analyzeElement(badButton)));
+
+    const res = await client.callTool({ name: "goldeye_get_selection", arguments: {} });
+    const text = (res.content as Array<{ text: string }>)[0]?.text ?? "";
+    expect(text).toMatch(/contrast/i);
+    expect(text).toMatch(/\.ghost/);
     await client.close();
   });
 });
