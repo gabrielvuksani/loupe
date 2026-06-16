@@ -7,19 +7,20 @@ under the old name on purpose so the history stays linked).
 
 ## Where things are
 - GitHub: `github.com/gabrielvuksani/loupe` (PRIVATE). `master` is the default branch.
-- `master` == `feat/design-mode-feature` == HEAD `7c07638`, all pushed. Tree clean.
+- `master` == `feat/design-mode-feature` == HEAD `00afb25`, all pushed. Tree clean.
 - This working tree: `~/orca/workspaces/design-harness/goldeye`. The folder is still named
   `goldeye`; that is cosmetic only (every package, the repo, the npm name, and all code say
   loupe). It is a git worktree, so renaming the folder needs `git worktree move` and would
   break an active shell. Left for safety. The `master` worktree lives at `~/Projects/design-harness`.
 
-## Packages (114 unit tests + real-browser integration, 3 typechecks exit 0)
+## Packages (117 unit tests + real-browser integration, 3 typechecks exit 0)
 - `packages/engine`: pure, DOM-free detection and fix computation. Rules: contrast (WCAG with
   an OKLCH hue-preserving fix via culori plus an APCA reading), target-size (44px, inline `<a>`
   exempted per WCAG 2.5.5), large-text, line-length, semantic-tag, type-scale, font-variety,
   font-weights, spacing-scale, color-count, accent-spread, shades-per-color, color-vision
-  (saturated pairs distinct to normal sight but confusable under color blindness). `vision.ts`
-  holds the CVD simulation matrices shared by that rule and the extension overlay. `buildPacket` /
+  (saturated pairs distinct to normal sight but confusable under color blindness), plus
+  tabindex-order for a positive tabindex that breaks keyboard order. `vision.ts` holds the CVD
+  simulation matrices shared by the color rule and the extension overlay. `buildPacket` /
   `packetToMarkdown` build the agent context; the packet now carries a `uniqueSelector`
   (full nth-of-type path) and `box` x/y position so a weak model targets the exact element.
   `captureElement` / `capturePage` are the DOM adapters. `reverifyElement` is the pure loop.
@@ -40,7 +41,7 @@ under the old name on purpose so the history stays linked).
 
 ## Run / build / test
 - `pnpm install`
-- `pnpm test` (114 unit, fast)
+- `pnpm test` (117 unit, fast)
 - `pnpm test:integration` (real browser; 5 pass, gated suites need flags below)
 - `pnpm --filter @loupe/extension build`, then load `.output/chrome-mv3` unpacked
 - `pnpm --filter loupe-cli serve` (or `node packages/connected/dist/bin.js serve` after build)
@@ -87,7 +88,10 @@ Connected mode, two ways to drive it, both proven end to end in `pull.integratio
    protanopia/deuteranopia/tritanopia (a two-condition OKLab gate, no false-precision fix), and
    a panel dropdown that filters the live page through the same CVD matrices so what you see is
    what loupe flags. Proven in vision.test.ts and the extension integration test.
-3. Keyboard and focus-order auditing (loupe leans on axe for a11y today).
+3. Keyboard and focus-order auditing: positive tabindex DONE 2026-06-16 (tabindex-order rule in
+   analyze.ts, exact remedy in the message, no CSS fix since it is an attribute change; captured
+   in both DOM adapters, proven in analyze.test.ts and the render integration). Still open:
+   missing focus indicators (needs :focus computed-style capture, which is false-positive prone).
 4. "Fix everything" batch dispatch (apply all findings in one send).
 5. Stream the agent's diff/progress back into the panel live (currently just a toast).
 6. Canonical design-system check: grade against tokens the user authored, not only universal

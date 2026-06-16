@@ -106,6 +106,7 @@ Deterministic, in the engine:
 - **Palette.** Total color count, competing accent hues, and a single accent stuck at one flat shade.
 - **Color vision.** Color pairs that look distinct to you but collapse under red-green or blue-yellow color blindness, with a page overlay to see it for yourself.
 - **Semantics.** A generic element wearing an interactive role that should be the real tag.
+- **Keyboard.** A positive tabindex that forces a brittle manual tab order instead of the natural one.
 - **Responsive.** Horizontal overflow at phone, tablet, and desktop widths, naming the elements that spill past the edge.
 - **Cross-browser.** Used CSS properties checked against your browserslist targets.
 
