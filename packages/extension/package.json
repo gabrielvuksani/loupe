@@ -1,0 +1,20 @@
+{
+  "name": "@goldeye/extension",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "goldeye Lens. MV3 extension for deterministic design and a11y verdicts on any page, in-browser.",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "prepare": "wxt prepare",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@goldeye/engine": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "wxt": "^0.20.0"
+  }
+}

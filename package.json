@@ -1,0 +1,21 @@
+{
+  "name": "goldeye",
+  "private": true,
+  "type": "module",
+  "description": "goldeye, a self-verifying browser. Deterministic design and a11y detection; AI only applies.",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "typecheck": "tsc -b"
+  },
+  "packageManager": "pnpm@10.0.0",
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}

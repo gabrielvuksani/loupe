@@ -1,0 +1,15 @@
+{
+  "name": "@goldeye/engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic design and accessibility detection engine. Pure functions over an ElementSnapshot, no DOM, no AI.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  }
+}

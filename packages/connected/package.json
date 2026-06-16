@@ -1,0 +1,29 @@
+{
+  "name": "@goldeye/connected",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "goldeye connected engine. MCP server and WebSocket bridge. Real Playwright render, axe-core, and Lighthouse, working out of the box.",
+  "bin": {
+    "goldeye-connected": "./src/bin.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "mcp": "tsx src/bin.ts --mcp",
+    "bridge": "tsx src/bin.ts --bridge",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@goldeye/engine": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@axe-core/playwright": "^4.10.1",
+    "playwright": "^1.49.1",
+    "lighthouse": "^12.3.0",
+    "chrome-launcher": "^1.1.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "@types/ws": "^8.5.13"
+  }
+}

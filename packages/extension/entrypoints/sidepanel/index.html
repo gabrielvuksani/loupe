@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>goldeye Lens</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --gold: #e8b54a;
+        --gold-bright: #f6cf6e;
+        --gold-deep: #c8902f;
+        --bg: #14171f;
+        --bg2: #1b1f2a;
+        --line: rgba(255, 255, 255, 0.1);
+        --line2: rgba(255, 255, 255, 0.16);
+        --ink: #f3f5f8;
+        --ink2: #aab2c0;
+        --faint: #6c7689;
+        --red: #ff6b6b;
+        --amber: #ffb454;
+        --mint: #5fd0a8;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Inter", system-ui, sans-serif;
+        background: linear-gradient(180deg, #181c26, #12141c);
+        color: var(--ink);
+        font-size: 13px;
+        -webkit-font-smoothing: antialiased;
+      }
+      .mono { font-family: "Geist Mono", monospace; }
+      .head {
+        display: flex; align-items: center; gap: 10px;
+        padding: 14px 16px; border-bottom: 1px solid var(--line);
+        position: sticky; top: 0; backdrop-filter: blur(12px);
+        background: rgba(20, 23, 31, 0.7); z-index: 5;
+      }
+      .head .title { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; flex: 1; }
+      .head .tag { font-family: "Geist Mono", monospace; font-size: 10px; color: var(--faint); }
+      .wrap { padding: 14px 16px 60px; }
+
+      .pills { display: grid; gap: 3px; padding: 4px; border-radius: 12px; background: rgba(0,0,0,0.28); border: 1px solid var(--line); }
+      .pills.two { grid-template-columns: 1fr 1fr; }
+      .pills.three { grid-template-columns: 1fr 1fr 1fr; }
+      .pill {
+        background: none; border: 1px solid transparent; cursor: pointer;
+        padding: 9px 6px; border-radius: 9px; font-family: inherit; font-size: 12px; font-weight: 600;
+        color: var(--faint); display: flex; align-items: center; justify-content: center; gap: 6px; transition: 0.18s;
+      }
+      .pill.on { background: rgba(232,181,74,0.14); border-color: rgba(232,181,74,0.32); color: var(--gold-bright); }
+      .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.7; }
+
+      .label { font-family: "Geist Mono", monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); margin: 16px 2px 7px; }
+      .note { font-size: 11.5px; line-height: 1.5; color: var(--ink2); margin: 9px 2px 2px; }
+      .note b { color: var(--ink); font-weight: 600; }
+
+      .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+      .btn {
+        font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+        padding: 11px; border-radius: 11px; border: 1px solid var(--line2); background: rgba(255,255,255,0.04); color: var(--ink);
+        display: flex; align-items: center; justify-content: center; gap: 7px; transition: 0.16s;
+      }
+      .btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(232,181,74,0.4); }
+      .btn.on { background: rgba(232,181,74,0.16); border-color: rgba(232,181,74,0.4); color: var(--gold-bright); }
+
+      .score { display: flex; align-items: center; gap: 14px; margin: 14px 0 4px; padding: 14px 16px; border-radius: 14px; background: rgba(255,255,255,0.025); border: 1px solid var(--line); }
+      .ring { width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; font-weight: 700; font-size: 16px; background: conic-gradient(var(--gold) calc(var(--p) * 1%), rgba(255,255,255,0.08) 0); }
+      .ring span { width: 42px; height: 42px; border-radius: 50%; background: #161922; display: grid; place-items: center; }
+      .score .meta .l { font-family: "Geist Mono", monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); }
+      .score .meta .d { font-size: 12px; color: var(--ink2); margin-top: 3px; }
+
+      .finding { background: rgba(255,255,255,0.025); border: 1px solid var(--line); border-radius: 12px; padding: 12px 13px; margin-bottom: 8px; }
+      .finding .top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+      .sev { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+      .sev.high { background: var(--red); box-shadow: 0 0 8px rgba(255,107,107,.6); }
+      .sev.medium { background: var(--amber); }
+      .sev.low { background: var(--faint); }
+      .finding .t { font-weight: 600; font-size: 12.5px; flex: 1; }
+      .finding .sel { font-family: "Geist Mono", monospace; font-size: 10px; color: var(--gold); background: rgba(232,181,74,0.1); padding: 2px 6px; border-radius: 5px; }
+      .finding .desc { font-size: 11.5px; line-height: 1.5; color: var(--ink2); margin: 0 0 9px; }
+      .finding .fix { font-family: "Geist Mono", monospace; font-size: 10.5px; color: var(--mint); margin: 0 0 9px; }
+      .finding .row { display: flex; gap: 6px; }
+      .act { font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line2); background: rgba(255,255,255,0.05); color: var(--ink2); transition: 0.15s; }
+      .act:hover { color: var(--ink); border-color: rgba(232,181,74,0.4); }
+      .act.gold { background: linear-gradient(180deg, rgba(232,181,74,0.95), var(--gold-deep)); color: #1a1407; border: 0; }
+
+      .empty { color: var(--faint); font-size: 12px; text-align: center; padding: 24px 12px; line-height: 1.6; }
+      .foot { padding: 10px 16px; border-top: 1px solid var(--line); display: flex; gap: 8px; }
+      .foot .btn { flex: 1; }
+      .toast { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: rgba(20,23,31,0.92); border: 1px solid var(--line2); border-radius: 10px; padding: 9px 14px; font-size: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.4); opacity: 0; transition: 0.25s; }
+      .toast.show { opacity: 1; }
+    </style>
+  </head>
+  <body>
+    <div class="head">
+      <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+        <path d="M3 16C6.5 9.5 11 6.5 16 6.5C21 6.5 25.5 9.5 29 16C25.5 22.5 21 25.5 16 25.5C11 25.5 6.5 22.5 3 16Z" stroke="#f6cf6e" stroke-width="1.7"/>
+        <circle cx="16" cy="16" r="5" fill="#f6cf6e"/><circle cx="16" cy="16" r="2" fill="#14171f"/>
+      </svg>
+      <span class="title">goldeye</span><span class="tag mono">the lens</span>
+    </div>
+
+    <div class="wrap">
+      <div class="pills two" id="mode">
+        <button class="pill on" data-mode="standalone"><span class="dot"></span>Standalone</button>
+        <button class="pill" data-mode="connected"><span class="dot"></span>Connected</button>
+      </div>
+      <p class="note" id="modeNote"><b>Local engine.</b> Deterministic checks run in your browser: contrast, target size, type scale, palette. $0, offline, nothing leaves the tab.</p>
+
+      <div class="label">Dispatch to</div>
+      <div class="pills three" id="agent">
+        <button class="pill on" data-agent="Claude Code">Claude Code</button>
+        <button class="pill" data-agent="Codex">Codex</button>
+        <button class="pill" data-agent="OpenCode">OpenCode</button>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="inspect">Inspect element</button>
+        <button class="btn" id="scan">Scan page</button>
+      </div>
+
+      <div id="scoreHost"></div>
+      <div id="findings"><div class="empty">Scan the page, or inspect an element, to see goldeye's verdict.</div></div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
