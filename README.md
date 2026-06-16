@@ -8,15 +8,15 @@ The loop is render, judge, fix, re-judge. Detection and fix computation are dete
 
 | Package | What it is | Status |
 |---|---|---|
-| `packages/engine` | Pure deterministic detection and fix computation. No DOM, no AI. | 14 unit tests |
+| `packages/engine` | Pure deterministic detection and fix computation. No DOM, no AI. | 40 unit tests |
 | `packages/extension` | The Lens. WXT MV3 extension. Runs the engine in-page (Standalone). | builds + loaded-extension e2e |
-| `packages/connected` | Node engine: Playwright, axe-core, Lighthouse, exposed as an MCP server and a WebSocket bridge. | unit + real-browser integration |
+| `packages/connected` | Node engine: Playwright, axe-core, Lighthouse, exposed as an MCP-over-HTTP daemon and a WebSocket bridge. | 40 unit + real-browser integration |
 
 ## Run
 
 ```
 pnpm install              # installs everything, including Playwright Chromium
-pnpm test                 # 16 unit tests (fast)
+pnpm test                 # 93 unit tests (fast)
 pnpm test:integration     # real browser: render, axe, Lighthouse, loaded extension
 ```
 
@@ -45,13 +45,20 @@ Load it: open `chrome://extensions`, enable Developer mode, Load unpacked, selec
 - Connected: streams element packets over a localhost WebSocket to the connected engine and your CLI agent to apply, then re-verify.
 - Dispatch to Claude Code, Codex, or OpenCode. Standalone copies the packet markdown; Connected sends it.
 
-## packages/connected (MCP server + real browser)
+## packages/connected (the engine daemon: MCP over HTTP + real browser)
+
+Run one long-lived daemon. The browser connects to the WebSocket bridge; every agent
+attaches to the MCP endpoint over HTTP. They share one selection store, so an agent pulls
+exactly what the Lens selected. One daemon serves every agent, so there is no per-agent
+process and no port contention.
 
 ```
-pnpm --filter @goldeye/connected serve     # one process: WS bridge (:8791) + MCP server, shared selection
-pnpm --filter @goldeye/connected mcp       # MCP server only (stdio)
-pnpm --filter @goldeye/connected bridge    # WebSocket bridge only (:8791)
+goldeye serve     # WS bridge (ws://127.0.0.1:8791) + MCP over HTTP (http://127.0.0.1:8792/mcp)
 ```
+
+From the repo: `pnpm --filter @goldeye/connected serve`. As a standalone CLI:
+`pnpm --filter @goldeye/connected build`, then `node packages/connected/dist/bin.js serve`
+(the bundle is self-contained; publish the package to get `npx goldeye serve`).
 
 Tools the agent calls from its own session:
 
@@ -60,24 +67,43 @@ Tools the agent calls from its own session:
 - `goldeye_score_taste`: record a subjective 0 to 10 taste read. The engine stays deterministic; this is the agent's judgment, surfaced as advisory.
 - `goldeye_analyze_url`, `goldeye_analyze_element`: real render and engine packet.
 
-Register goldeye in your agent (works with Claude Code, Codex, OpenCode):
+Register the running daemon once in your agent:
 
 ```
-claude mcp add --transport stdio goldeye -- pnpm --dir <abs-path>/packages/connected serve
+# Claude Code
+claude mcp add --transport http goldeye http://127.0.0.1:8792/mcp
+
+# Codex (streamable HTTP; SSE is not supported)
+codex mcp add goldeye --url http://127.0.0.1:8792/mcp
 ```
 
-The loop is pull-primary: select an element in the Lens, your running agent pulls it, edits its own repo, and calls `goldeye_reverify` to show the score climb. No LLM credentials leave your machine. A spawn fallback (`claude -p`, `codex exec`) covers the case where no session is live.
+```jsonc
+// OpenCode (opencode.json, project root or ~/.config/opencode/)
+{
+  "mcp": {
+    "goldeye": { "type": "remote", "url": "http://127.0.0.1:8792/mcp", "enabled": true }
+  }
+}
+```
+
+The loop is pull-primary: select an element in the Lens, your running agent pulls it, edits
+its own repo, and calls `goldeye_reverify` to show the score climb. No LLM credentials leave
+your machine. For sessions where no agent is attached, a bare stdio server
+(`pnpm --filter @goldeye/connected mcp`) and a spawn fallback (`claude -p`, `codex exec`)
+remain. The WS bridge binds loopback and accepts only `chrome-extension://` origins; the HTTP
+endpoint rejects any request that carries a browser `Origin` header.
 
 ## Verification
 
 | Layer | How it is verified |
 |---|---|
-| Engine rules and fixes | 14 unit tests including the zero-false-positive guard; strict typecheck |
-| MCP protocol and WS bridge | in-memory MCP client round-trip and live WebSocket round-trip |
+| Engine rules and fixes | 40 unit tests including the zero-false-positive guard; strict typecheck |
+| MCP protocol and WS bridge | in-memory and over-HTTP MCP client round-trips, plus a live WebSocket round-trip |
 | Real render, axe, Lighthouse | integration test renders a fixture in real Chromium and returns findings plus a numeric Lighthouse score |
 | Closed loop | integration test applies a computed contrast fix to a real render, re-judges, and the contrast finding is gone while the score rose |
 | Extension end to end | built MV3 in headed Chromium: scans a page, renders the on-page popover on click, and merges axe-core findings in Standalone |
+| Pull flow end to end | gated integration (`GOLDEYE_LIVE_PULL`): the built extension in headed Chromium publishes a Connected-mode selection over the WS bridge, and a real MCP-over-HTTP client pulls it via `goldeye_get_selection` |
 
-Automated now: the deterministic loop, the on-page popover, and axe in Standalone all have passing tests. Still manual: a live CLI agent editing source then re-verifying end to end. The dispatch command composition per agent is unit-tested; the real spawn is opt-in because it edits files and spends tokens.
+Automated now: the deterministic loop, the on-page popover, axe in Standalone, and the full pull path (a real browser publishes a Connected-mode selection and a real MCP-over-HTTP client pulls it) all have passing tests. Still manual: a live LLM editing source then re-verifying. The dispatch composition per agent is unit-tested; the real spawn is opt-in (it edits files and spends tokens), gated behind `GOLDEYE_LIVE_DISPATCH`.
 
-Cross-platform: Node, Playwright, and WebSocket only, with no OS-specific paths. Tested on macOS, portable to Windows.
+Cross-platform: Node, Playwright, and WebSocket only, with no OS-specific paths. Verified on macOS; not yet run on Windows.
