@@ -9,6 +9,7 @@ let inspecting = false;
 let ws: WebSocket | null = null;
 let lastPacket: { packet: ElementPacket; markdown: string } | null = null;
 let lastSelectorScore: { selector: string; score: number } | null = null;
+let lastPageScore: number | null = null;
 
 async function activeTabId(): Promise<number | undefined> {
   const [t] = await browser.tabs.query({ active: true, currentWindow: true });
@@ -60,6 +61,9 @@ function setMode(m: Mode): void {
   $("rootLabel").style.display = showRoot ? "block" : "none";
   $("root").style.display = showRoot ? "block" : "none";
   $("token").style.display = showRoot ? "block" : "none";
+  // a mode switch changes what the audit measures, so reset the climb baselines
+  lastPageScore = null;
+  lastSelectorScore = null;
   pushMode();
   if (m === "connected") connectWs();
   else {
@@ -124,10 +128,14 @@ function scoreCard(p: number, label: string, detail: string): string {
 }
 
 function renderAudit(findings: Finding[], score: Score): void {
+  // Re-scanning the same page with a different score is the re-verify climb.
+  const climb =
+    lastPageScore !== null && lastPageScore !== score.overall ? ` · ${lastPageScore} → ${score.overall}` : "";
+  lastPageScore = score.overall;
   $("scoreHost").innerHTML = scoreCard(
     score.overall,
     "Page health",
-    `${findings.length} finding(s) · taste ${score.byCategory.taste} · a11y ${score.byCategory.a11y}`,
+    `${findings.length} finding(s) · taste ${score.byCategory.taste} · a11y ${score.byCategory.a11y}${climb}`,
   );
   $("findings").innerHTML = findings.length
     ? findings.map(findingHtml).join("")
