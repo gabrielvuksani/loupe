@@ -61,6 +61,25 @@ HTTP/SSE MCP transport is the recommended follow-up to make pull robust.
   fixture CSS, goldeye re-rendered, the contrast finding cleared and the score rose. Codex
   was blocked by an account usage limit that day, not a goldeye defect.
 
+## Remaining for a real ship (the next session's menu)
+The full prioritized version with rationale is in the OS temp handoff doc
+(goldeye-handoff-2026-06-16.md) and Engram (topic_key architecture/goldeye-loop).
+Condensed and durable here so it does not depend on the temp dir:
+1. Productize: package @goldeye/connected as an installable (an `npx goldeye serve`
+   story), distribute the extension, MCP registration docs for Codex and OpenCode, add
+   CI under .github/workflows, and actually test on Windows (only macOS is verified).
+2. Prove the pull flow end to end with a real browser plus a real agent (see the
+   Verification status above: the in-process seam is tested, the full run is not).
+3. Security depth: optional WS one-time token (the drive-by RCE is already closed),
+   and SSRF link-local / metadata-IP blocking on top of the http(s) scheme guard.
+4. Validation: run the loop against real production sites; visual QA of the popover and
+   panel against prototypes/03-lens-extension.html (the chosen design).
+5. Deferred future (NEXT_SESSION.md "Out of scope" + ADR 0001): the app-maker (Lovable
+   twist), the Conductor redesign (prototype rejected), cloud connected mode, the deeper
+   vm-browser merge. hierarchy-levers is intentionally not a standalone rule.
+Branch feat/design-mode-feature is NOT merged to main and has no PR; opening it is the
+natural first step (superpowers:finishing-a-development-branch).
+
 ## Gotchas
 - The WS bridge binds 127.0.0.1 and rejects non-extension origins (verifyClient), so a
   visited web page cannot drive the dispatch handler. Connected render paths reject
