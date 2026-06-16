@@ -24,11 +24,20 @@ async function activeTabUrl(): Promise<string | undefined> {
 }
 async function toTab(msg: unknown): Promise<void> {
   const id = await activeTabId();
-  if (id != null) {
+  if (id == null) return;
+  try {
+    await browser.tabs.sendMessage(id, msg);
+  } catch {
+    // No content script in this tab yet: it was open before Loupe loaded, or it
+    // is a page Loupe cannot touch. Inject the content script, then retry once.
     try {
+      await browser.scripting.executeScript({
+        target: { tabId: id },
+        files: ["/content-scripts/content.js"],
+      });
       await browser.tabs.sendMessage(id, msg);
     } catch {
-      /* no content script on this page (e.g. chrome://) */
+      toast("Loupe can't reach this tab. Open a normal website (not a chrome:// or extensions page) and try again.");
     }
   }
 }

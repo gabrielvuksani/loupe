@@ -23,6 +23,12 @@ export default defineContentScript({
   matches: ["<all_urls>"],
   runAt: "document_idle",
   main() {
+    // A tab can get the content script twice: from the manifest match and from
+    // an on-demand panel injection. Run setup only once per tab.
+    const loaded = window as unknown as { __loupeLoaded?: boolean };
+    if (loaded.__loupeLoaded) return;
+    loaded.__loupeLoaded = true;
+
     let inspecting = false;
     let mode: "standalone" | "connected" = "standalone";
     let agent = "Claude Code";
