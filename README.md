@@ -104,7 +104,9 @@ Deterministic, in the engine:
 - **Type.** Scale ratios, the number of distinct sizes, font families, and weights.
 - **Rhythm.** Spacing snapped to a 4px grid, comfortable line length.
 - **Palette.** Total color count, competing accent hues, and a single accent stuck at one flat shade.
+- **Color vision.** Color pairs that look distinct to you but collapse under red-green or blue-yellow color blindness, with a page overlay to see it for yourself.
 - **Semantics.** A generic element wearing an interactive role that should be the real tag.
+- **Responsive.** Horizontal overflow at phone, tablet, and desktop widths, naming the elements that spill past the edge.
 - **Cross-browser.** Used CSS properties checked against your browserslist targets.
 
 Plus axe-core for accessibility in Standalone, and Lighthouse scores in Connected. The closed loop also gives you a pixel-level before/after visual delta on re-verify.
