@@ -40,6 +40,22 @@ export function popoverHtml(packet: ElementPacket, opts: PopoverOpts): string {
     : "";
   const text = packet.text ? `<div class="lp-text">"${escapeHtml(packet.text)}"</div>` : "";
   const shot = screenshotImg(packet.screenshot);
+  // Size, on-screen position, and the unambiguous target path: the same locating
+  // signals the packet carries, surfaced on the page so a weak model can act.
+  const pos = packet.box
+    ? `${Math.round(packet.box.width)}x${Math.round(packet.box.height)}px` +
+      (packet.box.x !== undefined && packet.box.y !== undefined
+        ? ` at (${Math.round(packet.box.x)}, ${Math.round(packet.box.y)})`
+        : "")
+    : "";
+  const target =
+    packet.uniqueSelector && packet.uniqueSelector !== packet.selector ? packet.uniqueSelector : "";
+  const meta =
+    pos || target
+      ? `<div class="lp-meta">${pos ? `<span>${escapeHtml(pos)}</span>` : ""}${
+          target ? `<span class="lp-utarget">${escapeHtml(target)}</span>` : ""
+        }</div>`
+      : "";
   // After a re-verify, show the before to after climb: the loop's payoff.
   const score =
     typeof opts.climbFrom === "number" && opts.climbFrom !== packet.score
@@ -50,6 +66,7 @@ export function popoverHtml(packet: ElementPacket, opts: PopoverOpts): string {
       <span class="lp-sel">${escapeHtml(packet.selector)}</span>
       ${score}
     </div>
+    ${meta}
     ${shot}
     ${text}
     <div class="lp-findings">${findings}</div>

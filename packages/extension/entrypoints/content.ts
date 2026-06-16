@@ -66,6 +66,9 @@ export default defineContentScript({
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .lp-score { font-weight: 700; }
       .lp-climb { color: #5fd0a8; }
+      .lp-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; font-size: 10px; color: #8b93a3; }
+      .lp-utarget { font-family: ui-monospace, monospace; color: #e8b54a; background: rgba(232,181,74,.1);
+        padding: 1px 5px; border-radius: 4px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .lp-shot { display: block; width: 100%; max-height: 150px; object-fit: contain;
         margin: 9px 0 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.25); }
       .lp-text { color: #aab2c0; font-size: 11.5px; margin: 7px 0; }

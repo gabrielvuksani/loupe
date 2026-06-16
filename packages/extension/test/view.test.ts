@@ -57,6 +57,23 @@ describe("popoverHtml", () => {
     expect(html).not.toContain("javascript:");
   });
 
+  it("shows the element size, position, and unique target so a weak model can locate it", () => {
+    const located = buildPacket(
+      {
+        selector: ".ghost",
+        tag: "button",
+        uniqueSelector: "section.hero > button.ghost",
+        box: { x: 40, y: 120, width: 96, height: 32 },
+        styles: {},
+      },
+      [],
+    );
+    const html = popoverHtml(located, { connected: false, agent: "Codex" });
+    expect(html).toMatch(/96x32px/);
+    expect(html).toMatch(/40, 120/);
+    expect(html).toMatch(/button\.ghost/);
+  });
+
   it("shows the before-to-after score climb after a re-verify", () => {
     const html = popoverHtml(packet, { connected: false, agent: "Codex", climbFrom: 72 });
     expect(html).toMatch(/72\s*&rarr;/);
