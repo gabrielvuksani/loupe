@@ -11,6 +11,8 @@ import {
   responsiveFindings,
   systemFindings,
   systemPageFindings,
+  tokensFromCss,
+  mergeDesignSystems,
   focusFindings,
   scoreFindings,
   type DesignSystem,
@@ -496,7 +498,6 @@ export async function reverifyAfterFix(url: string, fixes?: AppliedFix[]): Promi
 // given and it holds a loupe.tokens.json, also grade against that design system.
 export async function renderAndAnalyze(url: string, root?: string): Promise<UrlReport> {
   await assertRenderableUrl(url);
-  const system = root ? loadDesignSystem(root) : null;
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
@@ -506,6 +507,15 @@ export async function renderAndAnalyze(url: string, root?: string): Promise<UrlR
 
     const css = await page.evaluate(collectCssInPage);
     const crossBrowser = analyzeCrossBrowser(css);
+
+    // Design system: union the project's loupe.tokens.json (if any) with the
+    // tokens discovered in the page's own CSS custom properties. Gated on a
+    // project root, so an unaudited render stays silent.
+    let system: DesignSystem | null = null;
+    if (root) {
+      const merged = mergeDesignSystems(loadDesignSystem(root) ?? {}, tokensFromCss(css));
+      system = merged.colors || merged.fontSizes || merged.spacing ? merged : null;
+    }
 
     let axeViolations: Array<{ id: string; impact: string | null; nodes: unknown[]; help: string }> = [];
     try {

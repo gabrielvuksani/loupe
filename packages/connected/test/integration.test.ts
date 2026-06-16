@@ -4,13 +4,15 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { renderAndAnalyze } from "../src/playwright-adapter";
 
-const systemApp = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "system-app");
+const here = dirname(fileURLToPath(import.meta.url));
+const systemApp = join(here, "fixtures", "system-app");
 
 // A fixture page with intentional problems: 3 font families, a low-contrast
 // button (#aeb6c2 on white is about 1.9:1), a small tap target, and a 500px
 // element that overflows a 375px mobile viewport.
 const HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>fixture</title>
 <style>
+  :root { --text-base: 16px; --text-lg: 24px; --color-ink: #111827; }
   body { font-family: Inter, sans-serif; }
   h1 { font-family: Georgia, serif; font-size: 40px; }
   .note { font-family: Roboto, sans-serif; font-size: 13px; color: #555; }
@@ -76,6 +78,17 @@ describe("connected · renderAndAnalyze (real Playwright + axe-core + Lighthouse
     async () => {
       const report = await renderAndAnalyze(base, systemApp);
       // the 13px note and 15px button text are off the [16, 24, 40] type scale
+      expect(report.findings.some((f) => f.ruleId === "system-font-size")).toBe(true);
+    },
+    180000,
+  );
+
+  it(
+    "discovers tokens from the page's own CSS variables when there is no tokens file",
+    async () => {
+      // `here` has no loupe.tokens.json, so the only tokens are the page's :root
+      // custom properties (--text-base 16, --text-lg 24); 13px and 15px are off.
+      const report = await renderAndAnalyze(base, here);
       expect(report.findings.some((f) => f.ruleId === "system-font-size")).toBe(true);
     },
     180000,

@@ -1,6 +1,6 @@
 import type { ElementSnapshot, Finding, PageSnapshot } from "./types";
 import { parseColor } from "./contrast";
-import { converter } from "culori";
+import { converter, parse } from "culori";
 
 const toOklab = converter("oklab");
 const FONT_TOL = 0.5; // px rounding tolerance
@@ -82,6 +82,60 @@ export function systemFindings(snapshot: ElementSnapshot, system: DesignSystem):
   }
 
   return findings;
+}
+
+const FONT_NAME = /font|text/i;
+const SPACE_NAME = /space|spacing|gap|gutter/i;
+
+// Discover design tokens from a page's CSS custom properties so the design-system
+// check works without a config file. Colors are taken from any property whose
+// value is a color (the name does not matter); lengths are taken only when the
+// name signals a category (font/text -> type scale, space/gap -> spacing), so a
+// --radius or --width is never miscategorized. rem is resolved at a 16px base.
+// This also covers Tailwind v4, whose @theme compiles to :root custom properties.
+export function tokensFromCss(css: string): DesignSystem {
+  const colors = new Set<string>();
+  const fontSizes = new Set<number>();
+  const spacing = new Set<number>();
+  const re = /--([\w-]+)\s*:\s*([^;{}]+?)\s*(?:;|\})/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(css)) !== null) {
+    const name = m[1]!;
+    const value = m[2]!.trim();
+    if (parse(value)) {
+      colors.add(value);
+      continue;
+    }
+    const len = value.match(/^(-?\d*\.?\d+)(px|rem)$/);
+    if (!len) continue;
+    const px = Number(len[1]) * (len[2] === "rem" ? 16 : 1);
+    if (!Number.isFinite(px) || px <= 0) continue;
+    if (FONT_NAME.test(name)) fontSizes.add(px);
+    else if (SPACE_NAME.test(name)) spacing.add(px);
+  }
+  const sys: DesignSystem = {};
+  if (colors.size) sys.colors = [...colors];
+  if (fontSizes.size) sys.fontSizes = [...fontSizes];
+  if (spacing.size) sys.spacing = [...spacing];
+  return sys;
+}
+
+// Union several token sources (e.g. loupe.tokens.json and the page's CSS
+// variables) into one system, deduping each category and dropping empties.
+export function mergeDesignSystems(...systems: DesignSystem[]): DesignSystem {
+  const colors = new Set<string>();
+  const fontSizes = new Set<number>();
+  const spacing = new Set<number>();
+  for (const s of systems) {
+    for (const c of s.colors ?? []) colors.add(c);
+    for (const f of s.fontSizes ?? []) fontSizes.add(f);
+    for (const sp of s.spacing ?? []) spacing.add(sp);
+  }
+  const out: DesignSystem = {};
+  if (colors.size) out.colors = [...colors];
+  if (fontSizes.size) out.fontSizes = [...fontSizes];
+  if (spacing.size) out.spacing = [...spacing];
+  return out;
 }
 
 // Page-level companion: grade the page's spacing values against the authored

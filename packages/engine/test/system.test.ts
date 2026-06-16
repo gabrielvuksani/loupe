@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { systemFindings, systemPageFindings } from "../src/index";
+import { systemFindings, systemPageFindings, tokensFromCss, mergeDesignSystems } from "../src/index";
 import type { DesignSystem, PageSnapshot } from "../src/index";
 
 const system: DesignSystem = {
@@ -72,5 +72,63 @@ describe("systemPageFindings: spacing conformance to the authored scale", () => 
 
   it("returns nothing when no spacing tokens are declared", () => {
     expect(systemPageFindings({ ...base, spacings: [13, 17] }, {})).toEqual([]);
+  });
+});
+
+describe("tokensFromCss: discover tokens from CSS custom properties", () => {
+  const css = `:root {
+    --color-primary: #2563eb;
+    --ink: rgb(17, 24, 39);
+    --text-lg: 18px;
+    --font-size-base: 1rem;
+    --space-4: 16px;
+    --gap-sm: 8px;
+    --radius: 8px;
+    --shadow: 0 1px 2px rgba(0,0,0,.1);
+  }`;
+
+  it("pulls colors regardless of the property name", () => {
+    const sys = tokensFromCss(css);
+    expect(sys.colors).toContain("#2563eb");
+    expect(sys.colors).toContain("rgb(17, 24, 39)");
+  });
+
+  it("pulls font sizes from font/text named lengths, converting rem to px", () => {
+    const sys = tokensFromCss(css);
+    expect(sys.fontSizes).toContain(18);
+    expect(sys.fontSizes).toContain(16); // 1rem
+  });
+
+  it("pulls spacing from space/gap named lengths", () => {
+    const sys = tokensFromCss(css);
+    expect(sys.spacing).toContain(16);
+    expect(sys.spacing).toContain(8);
+  });
+
+  it("does not miscategorize a radius length as font size or spacing", () => {
+    const sys = tokensFromCss(css);
+    expect(sys.fontSizes ?? []).not.toContain(8);
+    expect(sys.spacing ?? []).not.toContain(8.0001);
+    // 8px appears only via --gap-sm, never via --radius
+  });
+
+  it("returns an empty system for CSS with no usable custom properties", () => {
+    expect(tokensFromCss("body { color: red; }")).toEqual({});
+  });
+});
+
+describe("mergeDesignSystems: union token sources", () => {
+  it("unions each category and dedupes, dropping empties", () => {
+    const merged = mergeDesignSystems(
+      { colors: ["#111"], fontSizes: [12] },
+      { colors: ["#111", "#222"], spacing: [8] },
+    );
+    expect(merged.colors).toEqual(["#111", "#222"]);
+    expect(merged.fontSizes).toEqual([12]);
+    expect(merged.spacing).toEqual([8]);
+  });
+
+  it("returns an empty system when every source is empty", () => {
+    expect(mergeDesignSystems({}, {})).toEqual({});
   });
 });
