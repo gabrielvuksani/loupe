@@ -10,7 +10,6 @@ import {
   type ElementSnapshot,
   type Finding,
 } from "@goldeye/engine";
-import axe from "axe-core";
 import { popoverHtml } from "./lib/view";
 import { cropRect } from "./lib/crop";
 import { axeViolationsToFindings, type AxeViolation } from "./lib/axe-findings";
@@ -180,9 +179,30 @@ export default defineContentScript({
       };
     };
 
-    // ---------- axe in Standalone ----------
+    // ---------- axe in Standalone (lazy: injected on first use) ----------
+    type AxeRuntime = { run: (ctx: never, opts: object) => Promise<{ violations: unknown[] }> };
+    const axeGlobal = (): AxeRuntime | undefined =>
+      (window as unknown as { __goldeyeAxe?: AxeRuntime }).__goldeyeAxe;
+    let axeInjecting: Promise<boolean> | null = null;
+    const ensureAxe = (): Promise<boolean> => {
+      if (axeGlobal()) return Promise.resolve(true);
+      if (!axeInjecting) {
+        axeInjecting = browser.runtime
+          .sendMessage({ type: "inject-axe" })
+          .then(() => Boolean(axeGlobal()))
+          .catch(() => false);
+        // let a failed injection be retried on the next audit
+        void axeInjecting.then((ok) => {
+          if (!ok) axeInjecting = null;
+        });
+      }
+      return axeInjecting;
+    };
     const axeFindings = async (context: Element | Document): Promise<Finding[]> => {
       try {
+        if (!(await ensureAxe())) return [];
+        const axe = axeGlobal();
+        if (!axe) return [];
         const res = await axe.run(context as never, { resultTypes: ["violations"] });
         return axeViolationsToFindings(res.violations as unknown as AxeViolation[]);
       } catch {
