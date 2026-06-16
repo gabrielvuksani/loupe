@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createServer, type Server } from "node:http";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { renderAndAnalyze } from "../src/playwright-adapter";
+
+const systemApp = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "system-app");
 
 // A fixture page with intentional problems: 3 font families, a low-contrast
 // button (#aeb6c2 on white is about 1.9:1), a small tap target, and a 500px
@@ -58,8 +62,21 @@ describe("connected · renderAndAnalyze (real Playwright + axe-core + Lighthouse
       // the positive tabindex on the skip link was flagged
       expect(report.findings.some((f) => f.ruleId === "tabindex-order")).toBe(true);
 
+      // with no project root, the design-system check stays silent
+      expect(report.findings.some((f) => f.ruleId.startsWith("system-"))).toBe(false);
+
       // Lighthouse ran for real → a numeric accessibility score
       expect(typeof report.lighthouse.accessibility).toBe("number");
+    },
+    180000,
+  );
+
+  it(
+    "grades the page against a project's loupe.tokens.json when a root is given",
+    async () => {
+      const report = await renderAndAnalyze(base, systemApp);
+      // the 13px note and 15px button text are off the [16, 24, 40] type scale
+      expect(report.findings.some((f) => f.ruleId === "system-font-size")).toBe(true);
     },
     180000,
   );

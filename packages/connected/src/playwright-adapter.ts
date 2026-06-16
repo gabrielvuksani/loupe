@@ -9,7 +9,9 @@ import {
   analyzeElement,
   analyzePage,
   responsiveFindings,
+  systemFindings,
   scoreFindings,
+  type DesignSystem,
   type ElementSnapshot,
   type Finding,
   type PageSnapshot,
@@ -18,6 +20,7 @@ import {
 } from "@loupe/engine";
 import { runLighthouse, type LighthouseScores } from "./lighthouse-adapter";
 import { crossBrowserFindings, resolveTargets, type CrossBrowserSummary } from "./cross-browser";
+import { loadDesignSystem } from "./design-system";
 
 export interface UrlReport {
   url: string;
@@ -150,9 +153,15 @@ function captureInPage(): { page: PageSnapshot; elements: ElementSnapshot[] } {
   };
 }
 
-function engineFindings(captured: { page: PageSnapshot; elements: ElementSnapshot[] }): Finding[] {
+function engineFindings(
+  captured: { page: PageSnapshot; elements: ElementSnapshot[] },
+  system?: DesignSystem | null,
+): Finding[] {
   const findings: Finding[] = [...analyzePage(captured.page)];
-  for (const snap of captured.elements) findings.push(...analyzeElement(snap));
+  for (const snap of captured.elements) {
+    findings.push(...analyzeElement(snap));
+    if (system) findings.push(...systemFindings(snap, system));
+  }
   return findings;
 }
 
@@ -406,9 +415,11 @@ export async function reverifyAfterFix(url: string, fixes?: AppliedFix[]): Promi
   }
 }
 
-// Render a URL, run the engine, axe-core, and Lighthouse.
-export async function renderAndAnalyze(url: string): Promise<UrlReport> {
+// Render a URL, run the engine, axe-core, and Lighthouse. When a project root is
+// given and it holds a loupe.tokens.json, also grade against that design system.
+export async function renderAndAnalyze(url: string, root?: string): Promise<UrlReport> {
   await assertRenderableUrl(url);
+  const system = root ? loadDesignSystem(root) : null;
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
@@ -434,7 +445,11 @@ export async function renderAndAnalyze(url: string): Promise<UrlReport> {
       await page.setViewportSize({ width, height: 900 });
       probes.push({ width, ...(await page.evaluate(probeOverflow)) });
     }
-    const findings = [...engineFindings(captured), ...crossBrowser.findings, ...responsiveFindings(probes)];
+    const findings = [
+      ...engineFindings(captured, system),
+      ...crossBrowser.findings,
+      ...responsiveFindings(probes),
+    ];
 
     const lighthouse = await runLighthouse(url);
 

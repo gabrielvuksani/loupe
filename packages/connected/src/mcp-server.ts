@@ -70,10 +70,16 @@ export function createServer(store: SelectionStore = createSelectionStore()): Se
       {
         name: "loupe_analyze_url",
         description:
-          "Render a URL in a real browser and return loupe deterministic findings + axe-core a11y + Lighthouse scores.",
+          "Render a URL in a real browser and return loupe deterministic findings + axe-core a11y + Lighthouse scores. Pass projectRoot to also grade the page against your authored design tokens in loupe.tokens.json.",
         inputSchema: {
           type: "object",
-          properties: { url: { type: "string", description: "The URL to analyze." } },
+          properties: {
+            url: { type: "string", description: "The URL to analyze." },
+            projectRoot: {
+              type: "string",
+              description: "Optional repo root holding loupe.tokens.json, for a design-system check.",
+            },
+          },
           required: ["url"],
         },
       },
@@ -136,7 +142,8 @@ export function createServer(store: SelectionStore = createSelectionStore()): Se
         return { content: [{ type: "text", text: JSON.stringify(report, null, 2) }] };
       }
       if (name === "loupe_analyze_url") {
-        const report = await renderAndAnalyze(String(args["url"]));
+        const root = args["projectRoot"] ? String(args["projectRoot"]) : undefined;
+        const report = await renderAndAnalyze(String(args["url"]), root);
         return { content: [{ type: "text", text: JSON.stringify(report, null, 2) }] };
       }
       if (name === "loupe_analyze_element") {

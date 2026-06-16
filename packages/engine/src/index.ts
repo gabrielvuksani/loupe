@@ -7,6 +7,7 @@ export { buildPacket, packetToMarkdown, findingsToMarkdown } from "./packet";
 export { reverifyElement, applyFix } from "./reverify";
 export { responsiveFindings } from "./responsive";
 export { colorVisionFindings, simulateCvd, svgColorMatrix, CVD_MATRICES } from "./vision";
+export { systemFindings } from "./system";
 export type {
   ElementSnapshot,
   ElementStyles,
@@ -21,3 +22,4 @@ export type { ElementPacket } from "./packet";
 export type { ReverifyResult } from "./reverify";
 export type { ViewportProbe } from "./responsive";
 export type { CvdType } from "./vision";
+export type { DesignSystem } from "./system";
