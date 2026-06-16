@@ -1,84 +1,71 @@
 # loupe
 
-A self-verifying browser. Point it at any page and it reports, deterministically and with no AI, what is wrong with the design and accessibility, and the exact fix. AI is used only to apply fixes to your code and for the subjective part of taste.
+loupe is a magnifier for your interface. Point it at any page and it tells you, precisely and without asking a language model to guess, what is wrong with the design and the accessibility, and the exact change that fixes it. Then it hands that to the coding agent you already use and checks the result.
 
-The loop is render, judge, fix, re-judge. Detection and fix computation are deterministic (WCAG contrast, target size, type scale, palette and typography variety). Your own CLI agent (Claude Code, Codex, OpenCode) applies the fix, so the moat sits with detection and the loop rather than with code generation.
+The detection is deterministic. A weak local model and a frontier model see the same findings, because no model produced them. The AI only does the part that genuinely needs a mind: editing your source, and the occasional question of taste.
 
-## Packages
+## The idea
 
-| Package | What it is | Status |
-|---|---|---|
-| `packages/engine` | Pure deterministic detection and fix computation. No DOM, no AI. | 40 unit tests |
-| `packages/extension` | The Lens. WXT MV3 extension. Runs the engine in-page (Standalone). | builds + loaded-extension e2e |
-| `packages/connected` | Node engine: Playwright, axe-core, Lighthouse, exposed as an MCP-over-HTTP daemon and a WebSocket bridge. | 40 unit + real-browser integration |
+Most design tooling either lints your CSS in the abstract or shows you a contrast number and leaves the rest to you. loupe does the whole loop: it renders the page, judges it against fixed rules (WCAG contrast, tap-target size, type scale, spacing rhythm, palette restraint, and a dozen more), computes the specific property change that resolves each finding, lets your agent apply it, then re-renders and re-judges so you can watch the score climb.
 
-## Run
+Because the judging is rules, not vibes, it works on pages you do not own. It reads the page's own system out of the values it actually uses, grades that against universal invariants, and only then, if you want, against a canonical system you authored.
 
-```
-pnpm install              # installs everything, including Playwright Chromium
-pnpm test                 # 93 unit tests (fast)
-pnpm test:integration     # real browser: render, axe, Lighthouse, loaded extension
-```
+## Two ways to run it
 
-## packages/engine
+**Standalone.** The engine runs entirely inside the page. Inspect any element for a verdict and a fix, or scan the whole page for a health report. It is free, offline, and nothing leaves the tab. axe-core rides along for a real accessibility pass.
 
-Pure functions over an `ElementSnapshot` or `PageSnapshot`. The content script captures, the engine analyzes. Every rule is a small unit, and a zero-false-positive guard test stays green for every new rule.
+**Connected.** The Lens talks to a small local daemon over a loopback socket, and your coding agent attaches to that same daemon over MCP. You select an element, say what you want, and the agent makes the change in your repo and re-verifies. No credentials leave your machine, because the model is the one you are already running.
 
-- `analyzeElement(snapshot)`: contrast (OKLCH minimal-color fix plus an APCA signal), target size, large-text threshold, line length, and semantic tag vs role.
-- `analyzePage(snapshot)`: font variety, font weights, type scale, spacing scale, text-color count, accent spread, and shades per color.
-- Connected adds a cross-browser rule (browser-compat-data + browserslist + projectwallace) and a pixelmatch before/after visual delta on re-verify.
-- `scoreFindings(findings)`: deterministic weighted deduction to a 0 to 100 score, overall and per category.
-- `buildPacket`, `packetToMarkdown`: the agent-pasteable context packet.
-- `captureElement`, `capturePage`: DOM to snapshot, shared by the extension and Playwright.
+## Quick start
 
-Scale strategy: infer the page's own system from used values, grade it against universal invariants (Refactoring UI), optionally check against an authored canonical system. Works on pages you do not own.
+Three pieces: the daemon, the extension, and your agent.
 
-## packages/extension (the Lens)
+**1. Run the daemon.**
 
 ```
-pnpm --filter @loupe/extension build    # output: packages/extension/.output/chrome-mv3
+npx loupe-cli serve
 ```
 
-Load it: open `chrome://extensions`, enable Developer mode, Load unpacked, select `.output/chrome-mv3`. Click the toolbar icon to open the side panel.
+That starts the WebSocket bridge on `ws://127.0.0.1:8791` for the browser and an MCP endpoint on `http://127.0.0.1:8792/mcp` for your agent. Leave it running. (Prefer a global install? `npm i -g loupe-cli`, then `loupe serve`.)
 
-- Standalone (default): the engine runs entirely in-page. Free, offline, nothing leaves the tab. Inspect element clicks any element for a verdict and fix; Scan page runs a page-health audit.
-- Connected: streams element packets over a localhost WebSocket to the connected engine and your CLI agent to apply, then re-verify.
-- Dispatch to Claude Code, Codex, or OpenCode. Standalone copies the packet markdown; Connected sends it.
+The render tools (`loupe_analyze_url`, `loupe_reverify`) drive a real Chromium through Playwright. The first time you use one, install the browser once: `npx playwright install chromium`. Plain `loupe serve` and the pull flow do not need it.
 
-## packages/connected (the engine daemon: MCP over HTTP + real browser)
-
-Run one long-lived daemon. The browser connects to the WebSocket bridge; every agent
-attaches to the MCP endpoint over HTTP. They share one selection store, so an agent pulls
-exactly what the Lens selected. One daemon serves every agent, so there is no per-agent
-process and no port contention.
+**2. Load the Lens.**
 
 ```
-loupe serve     # WS bridge (ws://127.0.0.1:8791) + MCP over HTTP (http://127.0.0.1:8792/mcp)
+pnpm --filter @loupe/extension build
 ```
 
-From the repo: `pnpm --filter loupe-cli serve`. As a standalone CLI:
-`pnpm --filter loupe-cli build`, then `node packages/connected/dist/bin.js serve`
-(the bundle is self-contained; publish the package to get `npx loupe-cli serve`).
+Open `chrome://extensions`, turn on Developer mode, choose Load unpacked, and point it at `packages/extension/.output/chrome-mv3`. Click the toolbar icon to open the side panel.
 
-Tools the agent calls from its own session:
+**3. Connect your agent.** See below.
 
-- `loupe_get_selection`: pull the element the Lens has selected (findings, computed fixes, a11y node, source hint, and a cropped screenshot for vision).
-- `loupe_reverify`: re-render a URL and report the before and after score. This is the loop.
-- `loupe_score_taste`: record a subjective 0 to 10 taste read. The engine stays deterministic; this is the agent's judgment, surfaced as advisory.
-- `loupe_analyze_url`, `loupe_analyze_element`: real render and engine packet.
+## Connect your coding agent
 
-Register the running daemon once in your agent:
+Register the running daemon once. loupe speaks the modern streamable-HTTP MCP transport, so one daemon serves every agent at the same time.
+
+**Claude Code**
 
 ```
-# Claude Code
 claude mcp add --transport http loupe http://127.0.0.1:8792/mcp
+```
 
-# Codex (streamable HTTP; SSE is not supported)
+**Codex** (streamable HTTP only; Codex dropped SSE)
+
+```
 codex mcp add loupe --url http://127.0.0.1:8792/mcp
 ```
 
+Or in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.loupe]
+url = "http://127.0.0.1:8792/mcp"
+```
+
+**OpenCode** in `opencode.json` (your project root, or `~/.config/opencode/`):
+
 ```jsonc
-// OpenCode (opencode.json, project root or ~/.config/opencode/)
 {
   "mcp": {
     "loupe": { "type": "remote", "url": "http://127.0.0.1:8792/mcp", "enabled": true }
@@ -86,26 +73,76 @@ codex mcp add loupe --url http://127.0.0.1:8792/mcp
 }
 ```
 
-The loop is pull-primary: select an element in the Lens, your running agent pulls it, edits
-its own repo, and calls `loupe_reverify` to show the score climb. No LLM credentials leave
-your machine. For sessions where no agent is attached, a bare stdio server
-(`pnpm --filter loupe-cli mcp`) and a spawn fallback (`claude -p`, `codex exec`)
-remain. The WS bridge binds loopback and accepts only `chrome-extension://` origins; the HTTP
-endpoint rejects any request that carries a browser `Origin` header. For extra hardening,
-`loupe serve --token` prints a one-time token the bridge then requires; paste it into the
-Lens panel's token field.
+Once it is registered, your agent has tools named `loupe_get_selection`, `loupe_reverify`, `loupe_analyze_url`, `loupe_analyze_element`, and `loupe_score_taste`.
 
-## Verification
+## The loop, in practice
 
-| Layer | How it is verified |
+Switch the Lens to Connected and inspect an element. Now you have two ways to drive it.
+
+**Tell loupe what you want.** Type the change into the panel ("make this the primary button", "tighten the line length", "give it a hover state") and hit Send. loupe ships the element context and your request to the agent, which makes the change in your repo and re-verifies.
+
+**Or ask your agent directly.** Leave your terminal session open and say "loupe, fix what I just selected." The agent calls `loupe_get_selection` and pulls everything itself. Same context, your choice of driver.
+
+Either way, the agent is not guessing which element you meant. `loupe_get_selection` returns:
+
+- a unique selector that targets that exact element, not the first match of a short class
+- where it sits on screen, in pixels
+- its accessible role and name
+- the source file and line, when a dev build exposes it
+- a cropped screenshot for models that can see
+- every finding with the precise computed fix
+- and the change you asked for, in your words
+
+That is enough for a small model to act without a single ambiguous step.
+
+## What loupe checks
+
+Deterministic, in the engine:
+
+- **Contrast.** WCAG ratio, with a hue-preserving OKLCH fix and an APCA reading alongside it.
+- **Tap targets.** Below 44px gets flagged, with inline text links correctly exempted per WCAG 2.5.5.
+- **Type.** Scale ratios, the number of distinct sizes, font families, and weights.
+- **Rhythm.** Spacing snapped to a 4px grid, comfortable line length.
+- **Palette.** Total color count, competing accent hues, and a single accent stuck at one flat shade.
+- **Semantics.** A generic element wearing an interactive role that should be the real tag.
+- **Cross-browser.** Used CSS properties checked against your browserslist targets.
+
+Plus axe-core for accessibility in Standalone, and Lighthouse scores in Connected. The closed loop also gives you a pixel-level before/after visual delta on re-verify.
+
+A zero-false-positive guard test runs on every rule, because a linter that cries wolf is worse than no linter. We learned that out loud: an early build flagged 59 "too small" tap targets on Hacker News that were all inline links, and a beautifully built site like Stripe scored far lower than it should have. The inline-link exemption fixed both without letting real issues through.
+
+## Run it from source
+
+```
+pnpm install          # everything, including Playwright's Chromium
+pnpm test             # the fast unit suite
+pnpm test:integration # real browser: render, axe, Lighthouse, and the loaded extension
+```
+
+Three packages:
+
+| Package | What it is |
 |---|---|
-| Engine rules and fixes | 40 unit tests including the zero-false-positive guard; strict typecheck |
-| MCP protocol and WS bridge | in-memory and over-HTTP MCP client round-trips, plus a live WebSocket round-trip |
-| Real render, axe, Lighthouse | integration test renders a fixture in real Chromium and returns findings plus a numeric Lighthouse score |
-| Closed loop | integration test applies a computed contrast fix to a real render, re-judges, and the contrast finding is gone while the score rose |
-| Extension end to end | built MV3 in headed Chromium: scans a page, renders the on-page popover on click, and merges axe-core findings in Standalone |
-| Pull flow end to end | gated integration (`LOUPE_LIVE_PULL`): the built extension in headed Chromium publishes a Connected-mode selection over the WS bridge, and a real MCP-over-HTTP client pulls it via `loupe_get_selection` |
+| `packages/engine` | Pure detection and fix computation. No DOM, no AI, every rule a small unit. |
+| `packages/extension` | The Lens. A WXT MV3 extension that runs the engine in the page. |
+| `packages/connected` | The daemon. Playwright, axe-core, and Lighthouse behind an MCP server and a WebSocket bridge. Published to npm as `loupe-cli`. |
 
-Automated now: the deterministic loop, the on-page popover, axe in Standalone, and the full pull path (a real browser publishes a Connected-mode selection and a real MCP-over-HTTP client pulls it) all have passing tests. Still manual: a live LLM editing source then re-verifying. The dispatch composition per agent is unit-tested; the real spawn is opt-in (it edits files and spends tokens), gated behind `LOUPE_LIVE_DISPATCH`.
+## How it is verified
 
-Cross-platform: Node, Playwright, and WebSocket only, with no OS-specific paths. Verified on macOS; not yet run on Windows.
+| Layer | How |
+|---|---|
+| Engine rules and fixes | unit tests, including the zero-false-positive guard |
+| MCP and the bridge | in-memory and over-HTTP MCP round-trips, plus a live WebSocket round-trip |
+| Real render | a fixture rendered in real Chromium returns findings and a numeric Lighthouse score |
+| The closed loop | a computed contrast fix applied to a live render, re-judged, the finding gone and the score up |
+| Pull flow end to end | the built extension in headed Chromium publishes a selection and a request, and a real MCP-over-HTTP client pulls both (gated behind `LOUPE_LIVE_PULL`) |
+
+Honest about the edges: the deterministic loop, the on-page popover, axe in Standalone, and the full pull path all have passing tests. A live model editing your source and re-verifying is opt-in (it spends tokens and touches files), gated behind `LOUPE_LIVE_DISPATCH`, and has been run by hand with Claude Code. Verified on macOS; not yet on Windows.
+
+## Security
+
+The bridge binds loopback and accepts only `chrome-extension://` origins, so a page you visit cannot drive it. The MCP endpoint rejects any request that carries a browser `Origin` header. The render guard refuses non-http(s) URLs and resolves hostnames to block link-local and cloud-metadata addresses, while still allowing your `localhost` and LAN dev servers. For a belt and suspenders, `loupe serve --token` prints a one-time token the bridge then requires.
+
+## License
+
+MIT.
