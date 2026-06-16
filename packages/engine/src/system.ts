@@ -1,10 +1,11 @@
-import type { ElementSnapshot, Finding } from "./types";
+import type { ElementSnapshot, Finding, PageSnapshot } from "./types";
 import { parseColor } from "./contrast";
 import { converter } from "culori";
 
 const toOklab = converter("oklab");
 const FONT_TOL = 0.5; // px rounding tolerance
 const COLOR_TOL = 0.02; // OKLab distance within which a color counts as on-palette
+const SPACING_TOL = 0.5; // px rounding tolerance for spacing
 
 // The project's authored design tokens. Every field is optional, so a partial
 // system (just a type scale, or just a palette) grades only what it declares.
@@ -81,4 +82,27 @@ export function systemFindings(snapshot: ElementSnapshot, system: DesignSystem):
   }
 
   return findings;
+}
+
+// Page-level companion: grade the page's spacing values against the authored
+// spacing scale. This catches what the per-element rules cannot see (padding and
+// margin are not in the element snapshot) and complements the universal
+// spacing-scale rule, which only knows a 4px grid, not the project's own steps.
+export function systemPageFindings(page: PageSnapshot, system: DesignSystem): Finding[] {
+  if (!system.spacing?.length) return [];
+  const scale = system.spacing;
+  const offScale = [...new Set(page.spacings)]
+    .filter((s) => s > 0 && !scale.some((t) => Math.abs(t - s) <= SPACING_TOL))
+    .sort((a, b) => a - b);
+  if (!offScale.length) return [];
+  const named = offScale.slice(0, 6).map((s) => `${s}px`).join(", ");
+  return [
+    {
+      ruleId: "system-spacing",
+      category: "taste",
+      severity: "low",
+      selector: ":root",
+      message: `Spacing ${named} ${offScale.length === 1 ? "is" : "are"} off your spacing scale (${scale.join(", ")}). Snap to the nearest authored step.`,
+    },
+  ];
 }

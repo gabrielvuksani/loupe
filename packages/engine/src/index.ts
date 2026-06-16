@@ -7,7 +7,7 @@ export { buildPacket, packetToMarkdown, findingsToMarkdown } from "./packet";
 export { reverifyElement, applyFix } from "./reverify";
 export { responsiveFindings } from "./responsive";
 export { colorVisionFindings, simulateCvd, svgColorMatrix, CVD_MATRICES } from "./vision";
-export { systemFindings } from "./system";
+export { systemFindings, systemPageFindings } from "./system";
 export { focusFindings } from "./focus";
 export type {
   ElementSnapshot,

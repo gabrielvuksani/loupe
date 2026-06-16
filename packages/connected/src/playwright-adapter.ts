@@ -10,6 +10,7 @@ import {
   analyzePage,
   responsiveFindings,
   systemFindings,
+  systemPageFindings,
   focusFindings,
   scoreFindings,
   type DesignSystem,
@@ -160,6 +161,7 @@ function engineFindings(
   system?: DesignSystem | null,
 ): Finding[] {
   const findings: Finding[] = [...analyzePage(captured.page)];
+  if (system) findings.push(...systemPageFindings(captured.page, system));
   for (const snap of captured.elements) {
     findings.push(...analyzeElement(snap));
     if (system) findings.push(...systemFindings(snap, system));
