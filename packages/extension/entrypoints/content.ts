@@ -215,7 +215,14 @@ export default defineContentScript({
         if (!(await ensureAxe())) return [];
         const axe = axeGlobal();
         if (!axe) return [];
-        const res = await axe.run(context as never, { resultTypes: ["violations"] });
+        // preload:false stops axe from XHR-fetching every cross-origin stylesheet
+        // (its color-contrast precision aid). loupe contrast is computed in the
+        // engine and we only read violations, so the preload only ever buys us a
+        // "Couldn't load preload assets" warning on CDN-styled pages. Skip it.
+        const res = await axe.run(context as never, {
+          resultTypes: ["violations"],
+          preload: false,
+        });
         return axeViolationsToFindings(res.violations as unknown as AxeViolation[]);
       } catch {
         return [];
