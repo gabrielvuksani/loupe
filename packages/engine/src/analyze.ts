@@ -1,5 +1,5 @@
-import type { ElementSnapshot, ElementStyles, Finding } from "./types";
-import { contrastRatio, minimalAccessibleColor } from "./contrast";
+import type { ComputedFix, ElementSnapshot, ElementStyles, Finding } from "./types";
+import { contrastRatio, minimalAccessibleColor, alternativeAccessibleColor } from "./contrast";
 
 const WCAG_AA_NORMAL = 4.5;
 const WCAG_AA_LARGE = 3;
@@ -24,12 +24,17 @@ export function analyzeElement(snapshot: ElementSnapshot): Finding[] {
       };
       const fixedColor = minimalAccessibleColor(color, backgroundColor, min);
       if (fixedColor) {
-        finding.fix = {
+        const fix: ComputedFix = {
           property: "color",
           from: color,
           to: fixedColor,
-          rationale: `Shift the text color to reach the ${min}:1 AA minimum.`,
+          rationale: `Shift the text color to reach the ${min}:1 AA minimum, preserving the hue.`,
         };
+        const alt = alternativeAccessibleColor(color, backgroundColor, min);
+        if (alt && alt !== fixedColor) {
+          fix.alternative = { to: alt, rationale: "Simpler blend toward black or white, less saturated." };
+        }
+        finding.fix = fix;
       }
       findings.push(finding);
     }

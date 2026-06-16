@@ -33,6 +33,7 @@ export interface ComputedFix {
   from: string;
   to: string;
   rationale: string;
+  alternative?: { to: string; rationale: string };
 }
 
 export interface Finding {

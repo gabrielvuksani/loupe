@@ -40,6 +40,9 @@ export function packetToMarkdown(packet: ElementPacket): string {
     lines.push(`- **[${f.severity}/${f.category}] ${f.ruleId}**: ${f.message}`);
     if (f.fix) {
       lines.push(`  - fix: \`${f.fix.property}\` ${f.fix.from} → ${f.fix.to} (${f.fix.rationale})`);
+      if (f.fix.alternative) {
+        lines.push(`    - alt: ${f.fix.alternative.to} (${f.fix.alternative.rationale})`);
+      }
     }
   }
   return lines.join("\n");

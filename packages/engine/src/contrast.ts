@@ -1,4 +1,8 @@
-// WCAG 2.1 contrast math. Pure and dependency free.
+// WCAG 2.1 contrast math, with an OKLCH lightness search for the suggested fix.
+import { converter, clampRgb } from "culori";
+
+const toOklch = converter("oklch");
+const toRgb = converter("rgb");
 
 export function parseColor(input: string): [number, number, number] | null {
   const s = input.trim().toLowerCase();
@@ -52,13 +56,46 @@ export function rgbString([r, g, b]: [number, number, number]): string {
   return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
 }
 
-// Nearest color to fg that meets the target contrast against bg, found by
-// binary searching a blend toward black or white.
-export function minimalAccessibleColor(
-  fg: string,
-  bg: string,
-  target = 4.5,
-): string | null {
+// The suggested fix color: search OKLCH lightness, keeping the original hue and
+// chroma, for the nearest color that meets the target contrast against bg.
+export function minimalAccessibleColor(fg: string, bg: string, target = 4.5): string | null {
+  const f = parseColor(fg);
+  const b = parseColor(bg);
+  if (!f || !b) return null;
+
+  const passes = (c: [number, number, number]): boolean => {
+    const r = contrastRatio(rgbString(c), bg);
+    return r !== null && r >= target;
+  };
+  if (passes(f)) return rgbString(f);
+
+  const okl = toOklch({ mode: "rgb", r: f[0] / 255, g: f[1] / 255, b: f[2] / 255 });
+  const l0 = okl.l;
+  const targetL = relativeLuminance(b) > 0.5 ? 0 : 1; // darken on light bg, lighten on dark
+  const at = (l: number): [number, number, number] => {
+    const c = clampRgb(toRgb({ mode: "oklch", l, c: okl.c, h: okl.h }));
+    return [c.r * 255, c.g * 255, c.b * 255];
+  };
+
+  let lo = 0;
+  let hi = 1;
+  let best = at(targetL);
+  for (let i = 0; i < 24; i++) {
+    const t = (lo + hi) / 2;
+    const candidate = at(l0 + t * (targetL - l0));
+    if (passes(candidate)) {
+      best = candidate;
+      hi = t;
+    } else {
+      lo = t;
+    }
+  }
+  return rgbString(best);
+}
+
+// The simpler alternative: binary search a blend toward black or white. Always
+// reaches AA but desaturates toward gray.
+export function alternativeAccessibleColor(fg: string, bg: string, target = 4.5): string | null {
   const f = parseColor(fg);
   const b = parseColor(bg);
   if (!f || !b) return null;
@@ -71,7 +108,6 @@ export function minimalAccessibleColor(
 
   const toward: [number, number, number] =
     relativeLuminance(b) > 0.5 ? [0, 0, 0] : [255, 255, 255];
-
   const mix = (
     a: [number, number, number],
     z: [number, number, number],

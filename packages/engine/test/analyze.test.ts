@@ -43,6 +43,19 @@ describe("analyzeElement: contrast (WCAG AA)", () => {
     expect(fixedRatio ?? 0).toBeGreaterThanOrEqual(4.5);
   });
 
+  it("offers a hue-preserving primary fix and a blend alternative, both reaching AA", () => {
+    const bg = "rgb(255, 255, 255)";
+    const findings = analyzeElement({
+      selector: ".site-btn-ghost",
+      tag: "button",
+      styles: { color: "rgb(174, 182, 194)", backgroundColor: bg },
+    });
+    const fix = findings.find((f) => f.ruleId === "contrast")?.fix;
+    expect(fix?.to).toBeDefined();
+    expect(fix?.alternative?.to).toBeDefined();
+    expect(contrastRatio(fix?.alternative?.to ?? "", bg) ?? 0).toBeGreaterThanOrEqual(4.5);
+  });
+
   it("uses the 3:1 large-text threshold, so mid-contrast large text passes", () => {
     // gray(140) on white is about 3.36:1, fails normal AA (4.5) but clears large-text (3.0).
     const findings = analyzeElement({

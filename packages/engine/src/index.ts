@@ -1,7 +1,7 @@
 export { analyzeElement } from "./analyze";
 export { analyzePage } from "./page";
 export { captureElement, capturePage } from "./capture";
-export { contrastRatio } from "./contrast";
+export { contrastRatio, minimalAccessibleColor, alternativeAccessibleColor } from "./contrast";
 export { scoreFindings } from "./score";
 export { buildPacket, packetToMarkdown } from "./packet";
 export { reverifyElement, applyFix } from "./reverify";
