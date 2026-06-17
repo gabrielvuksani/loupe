@@ -6,7 +6,7 @@ The detection is deterministic. A weak local model and a frontier model see the 
 
 ## The idea
 
-Most design tooling either lints your CSS in the abstract or shows you a contrast number and leaves the rest to you. loupe does the whole loop: it renders the page, judges it against fixed rules (WCAG contrast, tap-target size, type scale, spacing rhythm, palette restraint, and a dozen more), computes the specific property change that resolves each finding, lets your agent apply it, then re-renders and re-judges so you can watch the score climb.
+Most design tooling either lints your CSS in the abstract or shows you a contrast number and leaves the rest to you. loupe does the whole loop: it renders the page, judges it against fixed rules, computes the specific property change that resolves each finding, lets your agent apply it, then re-renders and re-judges so you can watch the score climb. Accessibility comes first and is the only thing the score reflects: WCAG contrast, tap-target size, keyboard and focus order, the AODA standard. The design checks (type scale, spacing rhythm, palette restraint) ride along as clearly separate, subjective notes, so an opinion never gets dressed up as a defect.
 
 Because the judging is rules, not vibes, it works on pages you do not own. It reads the page's own system out of the values it actually uses, grades that against universal invariants, and only then, if you want, against a canonical system you authored.
 
@@ -77,44 +77,49 @@ Once it is registered, your agent has tools named `loupe_get_selection`, `loupe_
 
 ## The loop, in practice
 
-Switch the Lens to Connected and inspect an element. Now you have two ways to drive it.
+Inspect an element, then type the change you want into the panel ("make this the primary button", "tighten the line length", "give it a hover state"). What happens next depends on how you run it.
 
-**Tell loupe what you want.** Type the change into the panel ("make this the primary button", "tighten the line length", "give it a hover state") and hit Send. loupe ships the element context and your request to the agent, which makes the change in your repo and re-verifies.
+**No daemon, no MCP.** In Standalone, hit Copy and loupe puts the full element context plus your request on the clipboard as one self-contained prompt. Paste it into any agent and it has everything. Zero setup.
 
-**Or ask your agent directly.** Leave your terminal session open and say "loupe, fix what I just selected." The agent calls `loupe_get_selection` and pulls everything itself. Same context, your choice of driver.
+**With the daemon.** In Connected, hit Send and loupe spawns your agent in your repo with that same context and request, and it starts working on its own. The agent does not need loupe's MCP for this; the daemon hands it the whole prompt.
 
-Either way, the agent is not guessing which element you meant. `loupe_get_selection` returns:
+**With the daemon and MCP.** Leave a terminal session open and say "loupe, fix what I just selected." The agent calls `loupe_get_selection` and pulls everything itself.
+
+Whichever path, the agent is not guessing which element you meant. The context carries:
 
 - a unique selector that targets that exact element, not the first match of a short class
-- where it sits on screen, in pixels
-- its accessible role and name
-- the source file and line, when a dev build exposes it
-- a cropped screenshot for models that can see
-- every finding with the precise computed fix
-- and the change you asked for, in your words
+- its containment path, its position among its siblings, and its identifying attributes (id, data-testid, href, aria-label)
+- where it sits on screen, in pixels, and a cropped screenshot for models that can see
+- its accessible role and name, and the source file and line when a dev build exposes it
+- every finding with the precise computed fix, and the change you asked for, in your words
 
-That is enough for a small model to act without a single ambiguous step.
+That is enough for a small local model to act without a single ambiguous step.
 
 ## What loupe checks
 
-Deterministic, in the engine:
+Accessibility is the trustworthy core, and the only thing the page score reflects. It is deterministic in the engine, plus axe-core restricted to the WCAG 2.0, 2.1, and 2.2 A and AA success criteria (the AODA standard), so you get real failures, not best-practice noise.
 
 - **Contrast.** WCAG ratio, with a hue-preserving OKLCH fix and an APCA reading alongside it.
 - **Tap targets.** Below 44px gets flagged, with inline text links correctly exempted per WCAG 2.5.5.
-- **Type.** Scale ratios, the number of distinct sizes, font families, and weights.
-- **Rhythm.** Spacing snapped to a 4px grid, comfortable line length.
-- **Palette.** Total color count, competing accent hues, and a single accent stuck at one flat shade.
-- **Color vision.** Color pairs that look distinct to you but collapse under red-green or blue-yellow color blindness, with a page overlay to see it for yourself.
-- **Semantics.** A generic element wearing an interactive role that should be the real tag.
 - **Keyboard.** A positive tabindex that forces a brittle manual tab order instead of the natural one.
 - **Focus.** Controls with no visible focus ring under keyboard navigation, tested with real Tab presses so a correct `:focus-visible` ring passes.
+- **Semantics.** A generic element wearing an interactive role that should be the real tag.
+- **Link text.** A link whose whole accessible name is a vague phrase like "read more" or "click here", which axe's own link-name rule misses because the name is not empty, just useless.
 - **Responsive.** Horizontal overflow at phone, tablet, and desktop widths, naming the elements that spill past the edge.
 - **Cross-browser.** Used CSS properties checked against your browserslist targets.
-- **Design system.** loupe reads your tokens from a `loupe.tokens.json` or straight from your CSS variables (Tailwind v4 too), then flags any font size, color, spacing, or font family that drifts off them, with the nearest token as the fix.
 
-Plus axe-core for accessibility in Standalone, and Lighthouse scores in Connected. The closed loop also gives you a pixel-level before/after visual delta on re-verify.
+Design is the opinionated layer, and it never touches the score. These are notes, collapsed and clearly labelled subjective, that you take or ignore:
 
-A zero-false-positive guard test runs on every rule, because a linter that cries wolf is worse than no linter. We learned that out loud: an early build flagged 59 "too small" tap targets on Hacker News that were all inline links, and a beautifully built site like Stripe scored far lower than it should have. The inline-link exemption fixed both without letting real issues through.
+- **Type and rhythm.** Scale ratios, distinct sizes, font families and weights, spacing on a grid, comfortable line length.
+- **Palette.** Total color count, competing accent hues, an accent stuck at one flat shade.
+- **Color vision.** Color pairs that look distinct to you but collapse under red-green or blue-yellow color blindness, with a page overlay to see it for yourself.
+- **Design system.** loupe reads your tokens from a `loupe.tokens.json` or straight from your CSS variables (Tailwind v4 too), then flags any value that drifts off them, with the nearest token as the fix.
+
+In the page itself you also get inspection tools, none of which need a model: spacing guides to the nearest neighbor, a two-element measure on Shift, a size badge on hover, an overflow highlight, a numbered focus-order overlay, and a heading outline.
+
+Plus Lighthouse scores in Connected, and a pixel-level before/after visual delta on re-verify.
+
+A zero-false-positive guard test runs on every accessibility rule, because a linter that cries wolf is worse than no linter. We learned that out loud: an early build flagged 59 "too small" tap targets on Hacker News that were all inline links, and a beautifully built site like Stripe scored far lower than it should have. The inline-link exemption fixed both without letting real issues through.
 
 ## Install and use
 
