@@ -13,14 +13,14 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      # pnpm/action-setup@v4 takes the pnpm version from the packageManager field
-      # in package.json (pnpm@10.0.0). Do NOT also pass `version:` here, or v4
-      # fails with ERR_PNPM_BAD_PM_VERSION ("Multiple versions of pnpm specified").
-      - uses: pnpm/action-setup@v4
+      # pnpm/action-setup takes the pnpm version from the packageManager field in
+      # package.json (pnpm@10.34.3). Do NOT also pass `version:` here, or it fails
+      # with ERR_PNPM_BAD_PM_VERSION ("Multiple versions of pnpm specified").
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
@@ -47,11 +47,11 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
