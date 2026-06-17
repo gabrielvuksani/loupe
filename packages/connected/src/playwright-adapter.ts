@@ -15,6 +15,7 @@ import {
   mergeDesignSystems,
   focusFindings,
   scoreFindings,
+  profileDelta,
   type DesignSystem,
   type ElementSnapshot,
   type Finding,
@@ -22,6 +23,7 @@ import {
   type PageSnapshot,
   type Score,
   type ViewportProbe,
+  type ProfileDelta,
 } from "@loupe/engine";
 import { runLighthouse, type LighthouseScores } from "./lighthouse-adapter";
 import { crossBrowserFindings, resolveTargets, type CrossBrowserSummary } from "./cross-browser";
@@ -572,6 +574,84 @@ export async function renderAndAnalyze(url: string, root?: string): Promise<UrlR
       page: captured.page,
       elementsAnalyzed: captured.elements.length,
     };
+  } finally {
+    await browser.close();
+  }
+}
+
+// One render profile: a viewport size plus the CSS media state to emulate.
+export interface RenderProfile {
+  name: string;
+  viewport: { width: number; height: number };
+  colorScheme?: "light" | "dark" | "no-preference";
+  reducedMotion?: "reduce" | "no-preference";
+}
+
+export interface ProfileReport {
+  profile: string;
+  viewport: { width: number; height: number };
+  colorScheme: "light" | "dark" | "no-preference";
+  reducedMotion: "reduce" | "no-preference";
+  score: Score;
+  findings: Finding[];
+}
+
+export interface MultiProfileReport {
+  url: string;
+  profiles: ProfileReport[];
+  delta: ProfileDelta;
+}
+
+// A small, meaningful default matrix: desktop and phone widths, light and dark.
+// The desktop pair differs only by color scheme, which is what surfaces a
+// dark-mode contrast failure a single light render would miss.
+export const DEFAULT_PROFILES: readonly RenderProfile[] = [
+  { name: "desktop-light", viewport: { width: 1280, height: 800 }, colorScheme: "light" },
+  { name: "desktop-dark", viewport: { width: 1280, height: 800 }, colorScheme: "dark" },
+  { name: "phone-light", viewport: { width: 390, height: 844 }, colorScheme: "light" },
+];
+
+// Render a URL across several viewport + media profiles and diff the findings.
+// Each profile is a fresh context emulating its viewport size and CSS media state
+// (color scheme, reduced motion), so prefers-color-scheme and the layout both
+// change for real. axe and Lighthouse are left to the single-render analyze path:
+// their results rarely differ across profiles, so running them per profile would
+// add cost without adding divergence.
+export async function renderProfiles(
+  url: string,
+  profiles: readonly RenderProfile[] = DEFAULT_PROFILES,
+): Promise<MultiProfileReport> {
+  await assertRenderableUrl(url);
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const reports: ProfileReport[] = [];
+    for (const p of profiles) {
+      const colorScheme = p.colorScheme ?? "light";
+      const reducedMotion = p.reducedMotion ?? "no-preference";
+      const context = await browser.newContext({ viewport: p.viewport, colorScheme, reducedMotion });
+      try {
+        const page = await context.newPage();
+        await page.goto(url, { waitUntil: "load", timeout: 30000 });
+        const captured = await page.evaluate(captureInPage);
+        const probe = await page.evaluate(probeOverflow);
+        const findings = [
+          ...engineFindings(captured),
+          ...responsiveFindings([{ width: p.viewport.width, ...probe }]),
+        ];
+        reports.push({
+          profile: p.name,
+          viewport: p.viewport,
+          colorScheme,
+          reducedMotion,
+          score: scoreFindings(findings),
+          findings,
+        });
+      } finally {
+        await context.close();
+      }
+    }
+    const delta = profileDelta(reports.map((r) => ({ profile: r.profile, findings: r.findings })));
+    return { url, profiles: reports, delta };
   } finally {
     await browser.close();
   }
