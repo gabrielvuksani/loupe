@@ -12,5 +12,12 @@ export default defineConfig({
     host_permissions: ["<all_urls>"],
     action: { default_title: "Open Loupe" },
     side_panel: { default_path: "sidepanel.html" },
+    // Keyboard-first: toggle inspect without reaching for the panel.
+    commands: {
+      "toggle-inspect": {
+        suggested_key: { default: "Alt+Shift+L" },
+        description: "Toggle loupe element inspect",
+      },
+    },
   },
 });

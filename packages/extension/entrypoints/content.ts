@@ -450,16 +450,18 @@ export default defineContentScript({
         onAction(act, btn);
       }
     };
-    const startInspecting = (): void => {
+    const startInspecting = (fromPanel = false): void => {
       if (inspecting) return;
       inspecting = true;
       document.addEventListener("mousemove", onMove, true);
       document.addEventListener("click", onClick, true);
       document.addEventListener("keydown", onKey, true);
+      // Echo to the panel so its Inspect button tracks a keyboard-started inspect.
+      if (!fromPanel) void browser.runtime.sendMessage({ type: "inspect-started" }).catch(() => {});
     };
-    // fromPanel is true when the side panel toggled inspect off (it already
-    // updated its own button); Escape in the page leaves it false, so we echo
-    // inspect-stopped back to resync the panel's Inspect button.
+    // fromPanel is true when the side panel drove the toggle (it already updated
+    // its own button). The keyboard command and Escape leave it false, so we echo
+    // the new state back to resync the panel's Inspect button.
     const stopInspecting = (fromPanel = false): void => {
       inspecting = false;
       document.removeEventListener("mousemove", onMove, true);
@@ -467,7 +469,7 @@ export default defineContentScript({
       document.removeEventListener("keydown", onKey, true);
       hideHl();
       hidePopover();
-      if (!fromPanel) void browser.runtime.sendMessage({ type: "inspect-stopped" });
+      if (!fromPanel) void browser.runtime.sendMessage({ type: "inspect-stopped" }).catch(() => {});
     };
 
     browser.runtime.onMessage.addListener((message: unknown) => {
@@ -482,8 +484,11 @@ export default defineContentScript({
         cvd?: string;
       };
       if (msg.type === "set-inspect") {
-        if (msg.value) startInspecting();
+        if (msg.value) startInspecting(true);
         else stopInspecting(true);
+      } else if (msg.type === "toggle-inspect") {
+        if (inspecting) stopInspecting();
+        else startInspecting();
       } else if (msg.type === "set-mode") {
         if (msg.mode) mode = msg.mode;
         if (msg.agent) agent = msg.agent;

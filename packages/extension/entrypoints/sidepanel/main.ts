@@ -87,6 +87,22 @@ function pushMode(): void {
   void toTab({ type: "set-mode", mode, agent });
 }
 
+// Persist the Connected-mode inputs so they survive reopening the panel.
+function remember(key: string, value: string): void {
+  try {
+    localStorage.setItem(`loupe.${key}`, value);
+  } catch {
+    /* storage unavailable (private mode); not worth surfacing */
+  }
+}
+function recall(key: string): string {
+  try {
+    return localStorage.getItem(`loupe.${key}`) ?? "";
+  } catch {
+    return "";
+  }
+}
+
 // ---------- mode + agent ----------
 function setMode(m: Mode): void {
   mode = m;
@@ -193,6 +209,7 @@ const AGENT_CMD: Record<string, string> = {
 };
 function setAgent(name: string): void {
   agent = name;
+  remember("agent", name);
   document.querySelectorAll("#agent .pill").forEach((b) =>
     b.classList.toggle("on", (b as HTMLElement).dataset["agent"] === name),
   );
@@ -216,33 +233,33 @@ function findingHtml(f: Finding): string {
   </div>`;
 }
 
-function scoreCard(p: number, label: string, detail: string): string {
-  return `<div class="score">
-    <div class="ring" style="--p:${p}"><span>${p}</span></div>
-    <div class="meta"><div class="l">${escapeHtml(label)}</div><div class="d">${escapeHtml(detail)}</div></div>
-  </div>`;
+// The score, demoted to a small muted pill to match the in-page popover. The
+// green climb pill on a re-verify is the one time it earns emphasis.
+function scorePill(score: number, prev: number | null): string {
+  return prev !== null
+    ? `<span class="spill climb">${prev} → ${score}/100</span>`
+    : `<span class="spill">${score}/100</span>`;
 }
 
 function renderAudit(findings: Finding[], score: Score): void {
   lastAudit = { findings, score };
   // Re-scanning the same page with a different score is the re-verify climb.
-  const climb =
-    lastPageScore !== null && lastPageScore !== score.overall ? ` · ${lastPageScore} → ${score.overall}` : "";
+  const prev = lastPageScore !== null && lastPageScore !== score.overall ? lastPageScore : null;
   lastPageScore = score.overall;
-  $("scoreHost").innerHTML = scoreCard(
-    score.overall,
-    "Page health",
-    `${findings.length} finding(s) · taste ${score.byCategory.taste} · a11y ${score.byCategory.a11y}${climb}`,
-  );
-  const batchBtn = findings.length
-    ? `<div class="finding"><div class="row"><button class="act gold" id="fixall" style="flex:1">${
+  $("scoreHost").innerHTML = `<div class="ecard">
+    <div class="etop"><span class="etag">Page health</span>${scorePill(score.overall, prev)}</div>
+    <div class="esub">${findings.length} finding(s) · taste ${score.byCategory.taste} · a11y ${score.byCategory.a11y}</div>
+  </div>`;
+  const primary = findings.length
+    ? `<button class="act gold full" id="fixall">${
         mode === "connected" ? "Fix all " + findings.length + " with " + escapeHtml(agent) : "Copy all findings"
-      }</button></div></div>`
+      }</button>`
     : "";
   $("findings").innerHTML =
+    (primary ? `<div class="pact">${primary}</div>` : "") +
     (findings.length
       ? findings.map(findingHtml).join("")
-      : `<div class="empty">No findings. The page passes loupe's deterministic checks.</div>`) + batchBtn;
+      : `<div class="empty">No findings. The page passes loupe's deterministic checks.</div>`);
   wireFindingActions();
   document.getElementById("fixall")?.addEventListener("click", () => void doBatchDispatch());
 }
@@ -250,25 +267,33 @@ function renderAudit(findings: Finding[], score: Score): void {
 function renderPacket(packet: ElementPacket, markdown: string): void {
   lastPacket = { packet, markdown };
   // Same element re-judged with a different score is the re-verify climb.
-  const climb =
+  const prev =
     lastSelectorScore &&
     lastSelectorScore.selector === packet.selector &&
     lastSelectorScore.score !== packet.score
-      ? ` · ${lastSelectorScore.score} → ${packet.score}`
-      : "";
+      ? lastSelectorScore.score
+      : null;
   lastSelectorScore = { selector: packet.selector, score: packet.score };
-  $("scoreHost").innerHTML = scoreCard(
-    packet.score,
-    `${packet.tag} · ${packet.selector}`,
-    `${packet.findings.length} finding(s)${climb}`,
-  );
-  const dispatchBtn = `<div class="finding"><div class="row">
-    <button class="act gold" id="dispatch" style="flex:1">${mode === "connected" ? "Send to " + escapeHtml(agent) : "Copy element packet"}</button>
-  </div></div>`;
+  // Element-led header to match the popover: what it is and its accessible name,
+  // the score a muted pill, the selector on its own line.
+  const role = packet.a11y?.role;
+  const name = packet.a11y?.name;
+  const ident =
+    `<span class="etag">${escapeHtml(packet.tag)}</span>` +
+    (role && role !== packet.tag ? `<span class="erole">${escapeHtml(role)}</span>` : "") +
+    (name ? `<span class="ename">${escapeHtml(name)}</span>` : "");
+  $("scoreHost").innerHTML = `<div class="ecard">
+    <div class="etop">${ident}${scorePill(packet.score, prev)}</div>
+    <div class="esel">${escapeHtml(packet.selector)}</div>
+  </div>`;
+  const primary = `<button class="act gold full" id="dispatch">${
+    mode === "connected" ? "Send to " + escapeHtml(agent) : "Copy element packet"
+  }</button>`;
   $("findings").innerHTML =
+    `<div class="pact">${primary}</div>` +
     (packet.findings.length
       ? packet.findings.map(findingHtml).join("")
-      : `<div class="empty">This element passes, still dispatchable.</div>`) + dispatchBtn;
+      : `<div class="empty">This element passes loupe's checks. Still dispatchable.</div>`);
   wireFindingActions();
   document.getElementById("dispatch")?.addEventListener("click", doDispatch);
 }
@@ -379,6 +404,23 @@ $("request").addEventListener("change", () => {
   }
 });
 
+// Remember the Connected inputs across panel reopens, and restore them on load.
+$("root").addEventListener("change", () => remember("root", projectRoot()));
+$("token").addEventListener("change", () =>
+  remember("token", ($("token") as HTMLInputElement).value.trim()),
+);
+const savedRoot = recall("root");
+if (savedRoot) ($("root") as HTMLInputElement).value = savedRoot;
+const savedToken = recall("token");
+if (savedToken) ($("token") as HTMLInputElement).value = savedToken;
+const savedAgent = recall("agent");
+if (savedAgent) {
+  agent = savedAgent;
+  document.querySelectorAll("#agent .pill").forEach((b) =>
+    b.classList.toggle("on", (b as HTMLElement).dataset["agent"] === savedAgent),
+  );
+}
+
 browser.runtime.onMessage.addListener((message: unknown) => {
   const msg = message as {
     type?: string;
@@ -398,9 +440,14 @@ browser.runtime.onMessage.addListener((message: unknown) => {
   } else if (msg.type === "dispatch-current") {
     doDispatch();
   } else if (msg.type === "inspect-stopped") {
-    // The page stopped inspecting (Escape); resync the Inspect toggle.
+    // The page stopped inspecting (Escape or hotkey); resync the Inspect toggle.
     inspecting = false;
     $("inspect").classList.remove("on");
     $("inspect").textContent = "Inspect element";
+  } else if (msg.type === "inspect-started") {
+    // The page started inspecting (hotkey); resync the Inspect toggle.
+    inspecting = true;
+    $("inspect").classList.add("on");
+    $("inspect").textContent = "Stop inspecting";
   }
 });
