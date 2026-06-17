@@ -83,6 +83,48 @@ export function composeBatchDispatch(
   return composePromptCommand(agent, buildBatchPrompt(findings, request, context), cwd);
 }
 
+// Common dirs where agent CLIs land but a daemon launched with a stripped
+// environment (a GUI launch, npx, or a version-manager shim that only loads in
+// interactive shells) often omits. We append any that are missing so spawn can
+// still resolve `claude`/`codex`/`opencode`.
+function commonBinDirs(home: string): string[] {
+  const sys = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"];
+  if (!home) return sys;
+  return [
+    ...sys,
+    `${home}/.local/bin`,
+    `${home}/.npm-global/bin`,
+    `${home}/.bun/bin`,
+    `${home}/.deno/bin`,
+    `${home}/.volta/bin`,
+    `${home}/.cargo/bin`,
+    `${home}/.yarn/bin`,
+  ];
+}
+
+// Build a PATH that keeps the caller's entries first (so their resolution wins)
+// and appends the common CLI dirs that are missing. The single most common
+// reason dispatch fails is the binary being installed but absent from the
+// daemon's PATH. Pure, given the environment.
+export function augmentedPath(env: NodeJS.ProcessEnv): string {
+  const sep = process.platform === "win32" ? ";" : ":";
+  const home = env["HOME"] || env["USERPROFILE"] || "";
+  const current = (env["PATH"] || env["Path"] || "").split(sep).filter(Boolean);
+  const seen = new Set(current);
+  const extras = commonBinDirs(home).filter((d) => !seen.has(d));
+  return [...current, ...extras].join(sep);
+}
+
+// A precise, actionable error when an agent binary is not on PATH, so dispatch
+// fails loudly and diagnosably instead of as a silent "spawn ENOENT".
+export function agentNotFoundMessage(cmd: string, path: string): string {
+  return (
+    `loupe could not run "${cmd}": it is not on the daemon's PATH. ` +
+    `Install the ${cmd} CLI, or start "loupe serve" from a shell where "${cmd}" runs. ` +
+    `PATH=${path}`
+  );
+}
+
 // Spawn a composed command, returning its output. Resolves with ok:false rather
 // than throwing when the agent binary is not installed. onOutput, when given,
 // receives each stdout/stderr chunk as it arrives, so the caller can stream the
@@ -94,7 +136,13 @@ export function runCommand(
 ): Promise<DispatchResult> {
   return new Promise((resolve) => {
     const MAX_OUTPUT = 1_000_000;
-    const child = spawn(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
+    // Resolve agent CLIs even when the daemon's PATH is stripped (GUI/npx launch).
+    const path = augmentedPath(process.env);
+    const child = spawn(cmd, args, {
+      cwd,
+      env: { ...process.env, PATH: path },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     let stdout = "";
     let stderr = "";
     let settled = false;
@@ -119,8 +167,13 @@ export function runCommand(
       stderr = cap(stderr, d);
       onOutput?.(String(d));
     });
-    child.on("error", (e) =>
-      finish({ ok: false, code: null, stdout, stderr: `${cmd} not available: ${e.message}` }),
+    child.on("error", (e: NodeJS.ErrnoException) =>
+      finish({
+        ok: false,
+        code: null,
+        stdout,
+        stderr: e.code === "ENOENT" ? agentNotFoundMessage(cmd, path) : `${cmd} not available: ${e.message}`,
+      }),
     );
     child.on("close", (code) => finish({ ok: code === 0, code, stdout, stderr }));
   });

@@ -9,6 +9,8 @@ import {
   composeTastePrompt,
   runCommand,
   gitDiffSummary,
+  augmentedPath,
+  agentNotFoundMessage,
 } from "../src/agents";
 
 const packet = buildPacket(
@@ -118,5 +120,37 @@ describe("composeTastePrompt", () => {
     expect(p).toMatch(/0 to 10/);
     expect(p).toMatch(/loupe_score_taste/);
     expect(p).toMatch(/\.ghost/);
+  });
+});
+
+describe("augmentedPath: resolve agent CLIs under a stripped daemon PATH", () => {
+  it("appends common CLI bin dirs missing from PATH", () => {
+    const p = augmentedPath({ PATH: "/usr/bin", HOME: "/Users/x" });
+    expect(p).toMatch(/(^|:)\/opt\/homebrew\/bin(:|$)/);
+    expect(p).toContain("/Users/x/.local/bin");
+  });
+
+  it("keeps the existing PATH entries first so the user's PATH wins resolution", () => {
+    const p = augmentedPath({ PATH: "/usr/local/bin:/usr/bin", HOME: "/Users/x" });
+    expect(p.split(":")[0]).toBe("/usr/local/bin");
+  });
+
+  it("does not duplicate a dir already on PATH", () => {
+    const p = augmentedPath({ PATH: "/opt/homebrew/bin:/usr/bin", HOME: "/Users/x" });
+    expect(p.split(":").filter((d) => d === "/opt/homebrew/bin").length).toBe(1);
+  });
+
+  it("still adds system dirs when HOME is unset", () => {
+    const p = augmentedPath({ PATH: "/usr/bin" });
+    expect(p).toContain("/opt/homebrew/bin");
+  });
+});
+
+describe("agentNotFoundMessage", () => {
+  it("names the missing command and includes the PATH the daemon saw", () => {
+    const msg = agentNotFoundMessage("claude", "/usr/bin:/opt/homebrew/bin");
+    expect(msg).toMatch(/claude/);
+    expect(msg).toMatch(/PATH=\/usr\/bin:\/opt\/homebrew\/bin/);
+    expect(msg).toMatch(/loupe serve/);
   });
 });
