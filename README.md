@@ -105,7 +105,8 @@ Accessibility is the trustworthy core, and the only thing the page score reflect
 - **Focus.** Controls with no visible focus ring under keyboard navigation, tested with real Tab presses so a correct `:focus-visible` ring passes.
 - **Semantics.** A generic element wearing an interactive role that should be the real tag.
 - **Link text.** A link whose whole accessible name is a vague phrase like "read more" or "click here", which axe's own link-name rule misses because the name is not empty, just useless.
-- **Responsive.** Horizontal overflow at phone, tablet, and desktop widths, naming the elements that spill past the edge. In Connected, loupe also renders the page across those widths and under both light and dark color schemes and reports which findings differ, so a contrast failure that only appears in dark mode does not slip past a single light-mode look.
+- **Responsive.** Horizontal overflow at phone, tablet, and desktop widths, naming the elements that spill past the edge. In Connected, loupe also renders the page across those widths, under both light and dark color schemes, and with reduced motion requested, then reports which findings differ, so a contrast failure that only shows up in dark mode does not slip past a single light-mode look. Run it from the Lens panel with "Check responsive", or have your agent call `loupe_analyze_responsive`.
+- **Motion.** An animation that keeps running even when the visitor asked for reduced motion (`prefers-reduced-motion: reduce`), which loupe catches by emulating that preference during the render.
 - **Cross-browser.** Used CSS properties checked against your browserslist targets.
 
 Design is the opinionated layer, and it never touches the score. These are notes, collapsed and clearly labelled subjective, that you take or ignore:
