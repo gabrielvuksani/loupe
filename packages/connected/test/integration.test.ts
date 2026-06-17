@@ -23,6 +23,7 @@ const HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>
   <p class="note">Cashflow, foreseen</p>
   <button class="ghost">Watch the tour</button>
   <a href="#main" class="skip" tabindex="2">Skip ahead</a>
+  <img src="logo.png">
   <div class="wide"></div>
 </body></html>`;
 
@@ -55,8 +56,9 @@ describe("connected · renderAndAnalyze (real Playwright + axe-core + Lighthouse
       expect(report.findings.some((f) => f.ruleId === "contrast")).toBe(true);
       expect(report.findings.some((f) => f.ruleId === "font-variety")).toBe(true);
 
-      // axe-core ran for real
-      expect(report.axe.violations).toBeGreaterThanOrEqual(0);
+      // axe-core ran for real: the alt-less image is an unambiguous violation
+      expect(report.axe.violations).toBeGreaterThan(0);
+      expect(report.axe.details.some((d) => d.id === "image-alt")).toBe(true);
 
       // the responsive probe caught the 500px element overflowing at 375px
       expect(report.findings.some((f) => f.ruleId === "responsive-overflow")).toBe(true);

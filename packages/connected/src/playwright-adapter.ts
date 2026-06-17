@@ -507,7 +507,11 @@ export async function renderAndAnalyze(url: string, root?: string): Promise<UrlR
   await assertRenderableUrl(url);
   const browser = await chromium.launch({ headless: true });
   try {
-    const page = await browser.newPage();
+    // axe-core/playwright requires a page from an explicit context, not the
+    // implicit default of browser.newPage(); without it AxeBuilder.analyze()
+    // throws "Please use browser.newContext()" and the catch silently drops axe.
+    const context = await browser.newContext();
+    const page = await context.newPage();
     await page.goto(url, { waitUntil: "load", timeout: 30000 });
 
     const captured = await page.evaluate(captureInPage);
