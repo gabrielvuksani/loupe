@@ -2,6 +2,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 import { analyzeElement, analyzePage, buildPacket, scoreFindings, type ElementPacket, type Finding } from "@loupe/engine";
 import { createSelectionStore, type SelectionStore } from "./selection-store";
 import { runDispatch, runBatchDispatch, gitDiffSummary, type AgentName } from "./agents";
+import type { RenderProfile } from "./playwright-adapter";
 
 // Forward an agent's live output to the extension as it runs, capped per
 // dispatch so a chatty agent cannot flood the socket. The full output still
@@ -58,6 +59,7 @@ export function startBridge(
         findings?: unknown;
         url?: string;
         score?: number;
+        profiles?: unknown;
       };
       try {
         msg = JSON.parse(String(data));
@@ -160,6 +162,25 @@ export function startBridge(
                 ws.send(JSON.stringify({ type: "dispatch-status", id: msg.id, phase: "diff", diff }));
               }
             });
+          }
+        } else if (msg.type === "analyze-responsive") {
+          if (!msg.url) {
+            ws.send(JSON.stringify({ type: "error", id: msg.id, message: "analyze-responsive needs a url" }));
+          } else {
+            const url = msg.url;
+            const profiles = Array.isArray(msg.profiles) ? (msg.profiles as RenderProfile[]) : undefined;
+            ws.send(JSON.stringify({ type: "responsive-status", id: msg.id, phase: "rendering" }));
+            // Lazy-load the Playwright adapter so the bridge module (and the unit
+            // tests that import it) stay light; it only loads on a real request.
+            void (async () => {
+              try {
+                const { renderProfiles } = await import("./playwright-adapter");
+                const report = await renderProfiles(url, profiles);
+                ws.send(JSON.stringify({ type: "responsive-result", id: msg.id, report }));
+              } catch (e) {
+                ws.send(JSON.stringify({ type: "error", id: msg.id, message: String(e) }));
+              }
+            })();
           }
         } else {
           ws.send(JSON.stringify({ type: "error", id: msg.id, message: `unknown type: ${msg.type}` }));

@@ -1,5 +1,13 @@
 import { findingsToMarkdown, scoreFindings } from "@loupe/engine";
-import type { ElementPacket, Finding, Score } from "@loupe/engine";
+import type { ElementPacket, Finding, Score, ProfileDelta } from "@loupe/engine";
+
+// The multi-profile render report the daemon returns over the bridge. Only the
+// fields the panel renders are typed here; the daemon owns the full shape.
+interface ResponsiveReport {
+  url: string;
+  profiles: Array<{ profile: string; score: Score }>;
+  delta: ProfileDelta;
+}
 
 const $ = (id: string): HTMLElement => document.getElementById(id) as HTMLElement;
 
@@ -175,6 +183,7 @@ function connectWs(): void {
           message?: string;
           chunk?: string;
           diff?: string;
+          report?: ResponsiveReport;
         };
         if (m.type === "dispatch-status") {
           if (m.phase === "dispatching") {
@@ -191,6 +200,15 @@ function connectWs(): void {
             appendLog(`\n✕ ${m.message ?? "dispatch failed"}\n`);
             toast(m.message ?? "Dispatch failed");
           }
+        } else if (m.type === "responsive-status" && m.phase === "rendering") {
+          showLog("▷ Rendering across viewports and light/dark…");
+          toast("Rendering profiles…");
+        } else if (m.type === "responsive-result" && m.report) {
+          renderResponsive(m.report);
+          toast("Responsive check done");
+        } else if (m.type === "error" && m.message) {
+          appendLog(`\n✕ ${m.message}\n`);
+          toast(m.message);
         }
       } catch {
         /* ignore */
@@ -397,6 +415,50 @@ function wireFindingActions(): void {
   );
 }
 
+// Ask the daemon to render the current tab across the profile matrix and show
+// the cross-profile delta. Connected only: the in-page engine cannot change the
+// viewport or the color scheme, so this goes over the bridge to Playwright.
+async function doResponsive(): Promise<void> {
+  if (mode !== "connected" || ws?.readyState !== WebSocket.OPEN) {
+    toast("Switch to Connected and run loupe serve");
+    return;
+  }
+  const url = await activeTabUrl();
+  if (!url || !/^https?:/i.test(url)) {
+    toast("Open a normal http(s) page to check it responsively");
+    return;
+  }
+  $("scoreHost").innerHTML =
+    `<div class="ecard"><div class="etop"><span class="etag">Checking responsive</span><span class="spinner"></span></div></div>`;
+  $("findings").innerHTML = "";
+  ws.send(JSON.stringify({ type: "analyze-responsive", url }));
+}
+
+// Render the cross-profile delta: the findings that differ between viewports and
+// color schemes, each naming where it appears and where it does not.
+function renderResponsive(report: ResponsiveReport): void {
+  const names = report.profiles.map((p) => p.profile);
+  $("scoreHost").innerHTML = `<div class="ecard">
+    <div class="etop"><span class="etag">Responsive</span><span class="spill">${report.profiles.length} profiles</span></div>
+    <div class="esub">${escapeHtml(names.join(" · "))}</div>
+  </div>`;
+  const divergent = report.delta.divergent;
+  if (!divergent.length) {
+    $("findings").innerHTML =
+      `<div class="empty">No differences across profiles. The page holds up across viewports, light and dark, and reduced motion.</div>`;
+    return;
+  }
+  $("findings").innerHTML = divergent
+    .map(
+      (d) => `<div class="finding">
+      <div class="top"><span class="sev ${escapeHtml(d.severity)}"></span><span class="t">${escapeHtml(d.ruleId)}</span><span class="sel">${escapeHtml(d.selector)}</span></div>
+      <p class="desc">${escapeHtml(d.message)}</p>
+      <p class="fix">in ${escapeHtml(d.in.join(", "))} · not in ${escapeHtml(d.notIn.join(", "))}</p>
+    </div>`,
+    )
+    .join("");
+}
+
 // ---------- wiring ----------
 // A port the panel holds open while it is alive. When the panel closes the
 // content script sees it disconnect and stops inspecting, so closing the panel
@@ -439,6 +501,7 @@ $("scan").addEventListener("click", () => {
 });
 $("overflow").addEventListener("click", () => void toTab({ type: "find-overflow" }));
 $("focusorder").addEventListener("click", () => void toTab({ type: "toggle-focus-order" }));
+$("responsive").addEventListener("click", () => void doResponsive());
 // Color-vision simulation: a pure client-side overlay, works in either mode.
 $("vision").addEventListener("change", () => {
   const cvd = ($("vision") as HTMLSelectElement).value;

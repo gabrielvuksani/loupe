@@ -4,6 +4,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { renderProfiles } from "../src/playwright-adapter";
 import { createServer as createMcpServer } from "../src/mcp-server";
+import { startBridge } from "../src/ws-bridge";
+import WebSocket from "ws";
 
 // A page that is fine in light mode (near-black text on white) but drops to a
 // low-contrast mid-grey on near-black under prefers-color-scheme: dark. A single
@@ -85,6 +87,45 @@ describe("connected · renderProfiles (multi-viewport + color-scheme emulation)"
         ),
       ).toBe(true);
       await client.close();
+    },
+    180000,
+  );
+
+  it(
+    "renders profiles over the WS bridge so the in-browser panel can show the delta",
+    async () => {
+      const wss = startBridge(0);
+      const port = await new Promise<number>((resolve) => {
+        const addr = wss.address();
+        if (addr && typeof addr === "object") resolve(addr.port);
+        else wss.once("listening", () => resolve((wss.address() as { port: number }).port));
+      });
+      const ws = new WebSocket(`ws://127.0.0.1:${port}`);
+      const report = await new Promise<{ delta: { divergent: Array<{ ruleId: string; in: string[] }> } }>((resolve, reject) => {
+        ws.on("open", () =>
+          ws.send(
+            JSON.stringify({
+              type: "analyze-responsive",
+              id: 1,
+              url: base,
+              profiles: [
+                { name: "desktop-light", viewport: { width: 1280, height: 800 }, colorScheme: "light" },
+                { name: "desktop-dark", viewport: { width: 1280, height: 800 }, colorScheme: "dark" },
+              ],
+            }),
+          ),
+        );
+        ws.on("message", (d) => {
+          const m = JSON.parse(String(d));
+          if (m.type === "responsive-result") resolve(m.report);
+          else if (m.type === "error") reject(new Error(m.message));
+        });
+        ws.on("error", reject);
+      });
+
+      expect(report.delta.divergent.some((dd) => dd.ruleId === "contrast" && dd.in.includes("desktop-dark"))).toBe(true);
+      ws.close();
+      await new Promise<void>((r) => wss.close(() => r()));
     },
     180000,
   );

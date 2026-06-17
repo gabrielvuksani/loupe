@@ -198,6 +198,23 @@ describe("WebSocket bridge", () => {
     await new Promise<void>((r) => wss.close(() => r()));
   });
 
+  it("rejects an analyze-responsive message that omits the url", async () => {
+    const wss = startBridge(0);
+    const port = await listeningPort(wss);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}`);
+
+    const result = await new Promise<{ type: string; message?: string }>((resolve, reject) => {
+      ws.on("open", () => ws.send(JSON.stringify({ type: "analyze-responsive", id: 9 })));
+      ws.on("message", (d) => resolve(JSON.parse(String(d))));
+      ws.on("error", reject);
+    });
+
+    expect(result.type).toBe("error");
+    expect(result.message).toMatch(/url/i);
+    ws.close();
+    await new Promise<void>((r) => wss.close(() => r()));
+  });
+
   it("rejects a connection from a web-page origin so a visited site cannot dispatch", async () => {
     const wss = startBridge(0);
     const port = await listeningPort(wss);
