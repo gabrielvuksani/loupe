@@ -10,6 +10,7 @@ export { colorVisionFindings, simulateCvd, svgColorMatrix, CVD_MATRICES } from "
 export { systemFindings, systemPageFindings, tokensFromCss, mergeDesignSystems } from "./system";
 export { focusFindings } from "./focus";
 export { profileDelta } from "./viewport";
+export { reducedMotionFindings } from "./motion";
 export type {
   ElementSnapshot,
   ElementStyles,
@@ -27,3 +28,4 @@ export type { CvdType } from "./vision";
 export type { DesignSystem } from "./system";
 export type { FocusProbe } from "./focus";
 export type { ProfileFindings, DivergentFinding, ProfileDelta } from "./viewport";
+export type { AnimationProbe } from "./motion";

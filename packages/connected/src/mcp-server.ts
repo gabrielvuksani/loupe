@@ -119,6 +119,7 @@ export function createServer(store: SelectionStore = createSelectionStore()): Se
                 required: ["name", "viewport"],
               },
             },
+            screenshots: { type: "boolean", description: "Attach a base64 PNG per profile (off by default; large)." },
           },
           required: ["url"],
         },
@@ -185,7 +186,7 @@ export function createServer(store: SelectionStore = createSelectionStore()): Se
       }
       if (name === "loupe_analyze_responsive") {
         const profiles = Array.isArray(args["profiles"]) ? (args["profiles"] as RenderProfile[]) : undefined;
-        const report = await renderProfiles(String(args["url"]), profiles);
+        const report = await renderProfiles(String(args["url"]), profiles, { screenshots: args["screenshots"] === true });
         return { content: [{ type: "text", text: JSON.stringify(report, null, 2) }] };
       }
       return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };

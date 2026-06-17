@@ -16,6 +16,7 @@ import {
   focusFindings,
   scoreFindings,
   profileDelta,
+  reducedMotionFindings,
   type DesignSystem,
   type ElementSnapshot,
   type Finding,
@@ -24,6 +25,7 @@ import {
   type Score,
   type ViewportProbe,
   type ProfileDelta,
+  type AnimationProbe,
 } from "@loupe/engine";
 import { runLighthouse, type LighthouseScores } from "./lighthouse-adapter";
 import { crossBrowserFindings, resolveTargets, type CrossBrowserSummary } from "./cross-browser";
@@ -583,6 +585,32 @@ export async function renderAndAnalyze(url: string, root?: string): Promise<UrlR
   }
 }
 
+// Collect the animation state of every currently-animating element, so the
+// engine can flag the ones that keep moving while reduced motion is emulated.
+function probeAnimations(): Array<{ selector: string; animationName: string; animationDuration: string; animationIterationCount: string }> {
+  const sel = (el: Element): string => {
+    const he = el as HTMLElement;
+    if (he.id) return `#${he.id}`;
+    const tag = el.tagName.toLowerCase();
+    const c = el.classList[0];
+    return c ? `${tag}.${c}` : tag;
+  };
+  const out: Array<{ selector: string; animationName: string; animationDuration: string; animationIterationCount: string }> = [];
+  for (const el of Array.from(document.body?.querySelectorAll("*") ?? [])) {
+    const cs = getComputedStyle(el);
+    if (cs.animationName && cs.animationName !== "none") {
+      out.push({
+        selector: sel(el),
+        animationName: cs.animationName,
+        animationDuration: cs.animationDuration,
+        animationIterationCount: cs.animationIterationCount,
+      });
+      if (out.length >= 60) break;
+    }
+  }
+  return out;
+}
+
 // One render profile: a viewport size plus the CSS media state to emulate.
 export interface RenderProfile {
   name: string;
@@ -598,6 +626,7 @@ export interface ProfileReport {
   reducedMotion: "reduce" | "no-preference";
   score: Score;
   findings: Finding[];
+  screenshot?: string; // base64 PNG data URL, only when opts.screenshots is set
 }
 
 export interface MultiProfileReport {
@@ -606,13 +635,16 @@ export interface MultiProfileReport {
   delta: ProfileDelta;
 }
 
-// A small, meaningful default matrix: desktop and phone widths, light and dark.
-// The desktop pair differs only by color scheme, which is what surfaces a
-// dark-mode contrast failure a single light render would miss.
+// A small, meaningful default matrix: desktop, tablet, and phone widths, light
+// and dark, plus a reduced-motion pass. The desktop light/dark pair surfaces a
+// dark-mode contrast failure; the reduced-motion profile surfaces an animation
+// that ignores the preference; the widths surface layout-only breaks.
 export const DEFAULT_PROFILES: readonly RenderProfile[] = [
   { name: "desktop-light", viewport: { width: 1280, height: 800 }, colorScheme: "light" },
   { name: "desktop-dark", viewport: { width: 1280, height: 800 }, colorScheme: "dark" },
+  { name: "tablet-light", viewport: { width: 768, height: 1024 }, colorScheme: "light" },
   { name: "phone-light", viewport: { width: 390, height: 844 }, colorScheme: "light" },
+  { name: "desktop-reduced-motion", viewport: { width: 1280, height: 800 }, colorScheme: "light", reducedMotion: "reduce" },
 ];
 
 // Render a URL across several viewport + media profiles and diff the findings.
@@ -621,9 +653,16 @@ export const DEFAULT_PROFILES: readonly RenderProfile[] = [
 // change for real. axe and Lighthouse are left to the single-render analyze path:
 // their results rarely differ across profiles, so running them per profile would
 // add cost without adding divergence.
+export interface RenderProfilesOptions {
+  // Attach a base64 PNG to each profile. Off by default to keep the report (and
+  // the MCP response) lean; a caller that wants to see each breakpoint opts in.
+  screenshots?: boolean;
+}
+
 export async function renderProfiles(
   url: string,
   profiles: readonly RenderProfile[] = DEFAULT_PROFILES,
+  opts: RenderProfilesOptions = {},
 ): Promise<MultiProfileReport> {
   await assertRenderableUrl(url);
   const browser = await chromium.launch({ headless: true });
@@ -642,14 +681,25 @@ export async function renderProfiles(
           ...engineFindings(captured),
           ...responsiveFindings([{ width: p.viewport.width, ...probe }]),
         ];
-        reports.push({
+        // Only when reduced motion is actually emulated: flag elements that keep
+        // animating anyway. A normal render never runs this, so a spinner on a
+        // page that made no reduced-motion request is not mistaken for a fault.
+        if (reducedMotion === "reduce") {
+          const animations = (await page.evaluate(probeAnimations)) as AnimationProbe[];
+          findings.push(...reducedMotionFindings(animations));
+        }
+        const report: ProfileReport = {
           profile: p.name,
           viewport: p.viewport,
           colorScheme,
           reducedMotion,
           score: scoreFindings(findings),
           findings,
-        });
+        };
+        if (opts.screenshots) {
+          report.screenshot = `data:image/png;base64,${(await page.screenshot({ type: "png" })).toString("base64")}`;
+        }
+        reports.push(report);
       } finally {
         await context.close();
       }
