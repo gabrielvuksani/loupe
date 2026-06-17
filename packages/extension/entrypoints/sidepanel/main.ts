@@ -384,6 +384,8 @@ $("inspect").addEventListener("click", () => {
   void toTab({ type: "set-inspect", value: inspecting });
 });
 $("scan").addEventListener("click", () => void toTab({ type: "analyze-page" }));
+$("overflow").addEventListener("click", () => void toTab({ type: "find-overflow" }));
+$("focusorder").addEventListener("click", () => void toTab({ type: "toggle-focus-order" }));
 // Color-vision simulation: a pure client-side overlay, works in either mode.
 $("vision").addEventListener("change", () => {
   const cvd = ($("vision") as HTMLSelectElement).value;
@@ -449,5 +451,10 @@ browser.runtime.onMessage.addListener((message: unknown) => {
     inspecting = true;
     $("inspect").classList.add("on");
     $("inspect").textContent = "Stop inspecting";
+  } else if (msg.type === "overflow-result") {
+    const n = (msg as { count?: number }).count ?? 0;
+    toast(n ? `${n} element(s) push past the viewport` : "No horizontal overflow");
+  } else if (msg.type === "focus-order-result") {
+    toast((msg as { on?: boolean }).on ? "Focus order shown (red = manual tabindex)" : "Focus order hidden");
   }
 });

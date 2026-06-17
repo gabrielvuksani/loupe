@@ -15,6 +15,8 @@ import {
 } from "@loupe/engine";
 import { popoverHtml } from "./lib/view";
 import { placePopover } from "./lib/position";
+import { nearestGaps } from "./lib/measure";
+import { focusOrder } from "./lib/focus-order";
 import { cropRect } from "./lib/crop";
 import { axeViolationsToFindings, type AxeViolation } from "./lib/axe-findings";
 
@@ -34,6 +36,8 @@ export default defineContentScript({
     let mode: "standalone" | "connected" = "standalone";
     let agent = "Claude Code";
     let hl: HTMLElement | null = null;
+    let guides: HTMLElement | null = null;
+    let guideEl: Element | null = null;
     let popHost: HTMLElement | null = null;
     let popBody: HTMLElement | null = null;
     let current: { el: Element; packet: ElementPacket } | null = null;
@@ -73,6 +77,126 @@ export default defineContentScript({
     };
     const hideHl = (): void => {
       if (hl) hl.style.display = "none";
+    };
+
+    // ---------- spacing guides (VisBug-style distance to neighbors) ----------
+    const ensureGuides = (): HTMLElement => {
+      if (!guides) {
+        guides = document.createElement("div");
+        guides.style.cssText = "position:fixed;inset:0;z-index:2147483645;pointer-events:none;display:none;";
+        document.documentElement.appendChild(guides);
+      }
+      return guides;
+    };
+    const clearGuides = (): void => {
+      if (guides) {
+        guides.replaceChildren();
+        guides.style.display = "none";
+      }
+      guideEl = null;
+    };
+    // One mint dashed line spanning a gap, with a px badge at its midpoint.
+    const addGuide = (host: HTMLElement, x: number, y: number, len: number, horizontal: boolean, label: string): void => {
+      const col = "#5fd0a8";
+      const line = document.createElement("div");
+      line.style.cssText = horizontal
+        ? `position:absolute;left:${x}px;top:${y}px;width:${len}px;height:0;border-top:1px dashed ${col};`
+        : `position:absolute;left:${x}px;top:${y}px;width:0;height:${len}px;border-left:1px dashed ${col};`;
+      const tag = document.createElement("div");
+      tag.textContent = label;
+      tag.style.cssText =
+        `position:absolute;left:${horizontal ? x + len / 2 : x}px;top:${horizontal ? y : y + len / 2}px;` +
+        `transform:translate(-50%,-50%);font:600 9px/1 ui-monospace,monospace;color:#06281f;background:${col};` +
+        `padding:1px 4px;border-radius:3px;white-space:nowrap;`;
+      host.append(line, tag);
+    };
+    const drawGuides = (el: Element): void => {
+      const host = ensureGuides();
+      host.replaceChildren();
+      const t = el.getBoundingClientRect();
+      const kids = el.parentElement ? Array.from(el.parentElement.children) : [];
+      const rects = kids
+        .filter((c) => c !== el && !isOwnUi(c))
+        .map((c) => c.getBoundingClientRect())
+        .filter((r) => r.width > 0 && r.height > 0)
+        .map((r) => ({ top: r.top, right: r.right, bottom: r.bottom, left: r.left }));
+      const gaps = nearestGaps({ top: t.top, right: t.right, bottom: t.bottom, left: t.left }, rects);
+      const cx = (t.left + t.right) / 2;
+      const cy = (t.top + t.bottom) / 2;
+      if (gaps.right !== undefined) addGuide(host, t.right, cy, gaps.right, true, `${Math.round(gaps.right)}`);
+      if (gaps.left !== undefined) addGuide(host, t.left - gaps.left, cy, gaps.left, true, `${Math.round(gaps.left)}`);
+      if (gaps.bottom !== undefined) addGuide(host, cx, t.bottom, gaps.bottom, false, `${Math.round(gaps.bottom)}`);
+      if (gaps.top !== undefined) addGuide(host, cx, t.top - gaps.top, gaps.top, false, `${Math.round(gaps.top)}`);
+      host.style.display = "block";
+    };
+
+    // ---------- overflow highlight (which elements push past the viewport) ----------
+    let overflowHost: HTMLElement | null = null;
+    let overflowTimer: number | null = null;
+    const showOverflow = (): number => {
+      if (!overflowHost) {
+        overflowHost = document.createElement("div");
+        overflowHost.style.cssText = "position:fixed;inset:0;z-index:2147483644;pointer-events:none;";
+        document.documentElement.appendChild(overflowHost);
+      }
+      overflowHost.replaceChildren();
+      if (overflowTimer) window.clearTimeout(overflowTimer);
+      const vw = document.documentElement.clientWidth;
+      let count = 0;
+      for (const el of Array.from(document.querySelectorAll<HTMLElement>("body *"))) {
+        if (isOwnUi(el)) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) continue;
+        if (r.right > vw + 1) {
+          count++;
+          if (count <= 80) {
+            const mark = document.createElement("div");
+            mark.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border:1.5px solid #ff6b6b;background:rgba(255,107,107,.07);box-sizing:border-box;`;
+            overflowHost.appendChild(mark);
+          }
+        }
+      }
+      overflowHost.style.display = "block";
+      // Auto-clear so the page is not left marked up indefinitely.
+      overflowTimer = window.setTimeout(() => overflowHost?.replaceChildren(), 6000);
+      return count;
+    };
+
+    // ---------- focus-order overlay (numbered tab sequence) ----------
+    let focusHost: HTMLElement | null = null;
+    let focusShown = false;
+    const FOCUSABLE =
+      "a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]";
+    const toggleFocusOrder = (): boolean => {
+      if (!focusHost) {
+        focusHost = document.createElement("div");
+        focusHost.style.cssText = "position:fixed;inset:0;z-index:2147483644;pointer-events:none;";
+        document.documentElement.appendChild(focusHost);
+      }
+      focusShown = !focusShown;
+      focusHost.replaceChildren();
+      focusHost.style.display = focusShown ? "block" : "none";
+      if (!focusShown) return false;
+      const nodes = Array.from(document.querySelectorAll<HTMLElement>(FOCUSABLE))
+        .filter((el) => !isOwnUi(el))
+        .map((el, dom) => ({ el, dom, tabindex: Number(el.getAttribute("tabindex") ?? "0") || 0 }))
+        .filter((n) => {
+          const r = n.el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0;
+        });
+      focusOrder(nodes).forEach((n, i) => {
+        const r = n.el.getBoundingClientRect();
+        // Red marks a positive tabindex (a manual order that fights the DOM).
+        const col = n.tabindex > 0 ? "#ff6b6b" : "#e8b54a";
+        const badge = document.createElement("div");
+        badge.textContent = String(i + 1);
+        badge.style.cssText =
+          `position:fixed;left:${r.left}px;top:${r.top}px;transform:translate(-50%,-50%);` +
+          `font:700 10px/1 ui-monospace,monospace;color:#1a1407;background:${col};min-width:16px;height:16px;` +
+          `display:flex;align-items:center;justify-content:center;padding:0 3px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.4);`;
+        focusHost?.appendChild(badge);
+      });
+      return true;
     };
 
     // ---------- popover (open shadow root, isolated from page CSS) ----------
@@ -438,7 +562,15 @@ export default defineContentScript({
       t === popHost || t === hl || (t instanceof Element && t.id === "loupe-cvd-defs");
     const onMove = (e: MouseEvent): void => {
       const el = e.target as Element | null;
-      if (inspecting && el && !isOwnUi(el)) moveHl(el);
+      if (inspecting && el && !isOwnUi(el)) {
+        moveHl(el);
+        // Recompute the spacing guides only when the hovered element changes, not
+        // on every micro-move within it.
+        if (el !== guideEl) {
+          drawGuides(el);
+          guideEl = el;
+        }
+      }
     };
     const onClick = (e: MouseEvent): void => {
       if (!inspecting) return;
@@ -481,6 +613,7 @@ export default defineContentScript({
       document.removeEventListener("keydown", onKey, true);
       hideHl();
       hidePopover();
+      clearGuides();
       if (!fromPanel) void browser.runtime.sendMessage({ type: "inspect-stopped" }).catch(() => {});
     };
 
@@ -530,6 +663,12 @@ export default defineContentScript({
         if (el) el.style.setProperty(msg.property, msg.to);
       } else if (msg.type === "set-vision") {
         setVision((msg.cvd as CvdType | undefined) ?? null);
+      } else if (msg.type === "find-overflow") {
+        const count = showOverflow();
+        void browser.runtime.sendMessage({ type: "overflow-result", count }).catch(() => {});
+      } else if (msg.type === "toggle-focus-order") {
+        const on = toggleFocusOrder();
+        void browser.runtime.sendMessage({ type: "focus-order-result", on }).catch(() => {});
       }
     });
   },
