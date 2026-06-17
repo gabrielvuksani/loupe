@@ -111,8 +111,8 @@ function setMode(m: Mode): void {
   );
   $("modeNote").innerHTML =
     m === "connected"
-      ? `<b>Full loop.</b> Element packets stream to the loupe engine and your CLI agent (${escapeHtml(agent)}) to apply, then re-verify.`
-      : `<b>Local engine.</b> Deterministic checks run in your browser: contrast, target size, type scale, palette. $0, offline, nothing leaves the tab.`;
+      ? `<b>Full loop.</b> The element and your request stream to your CLI agent (${escapeHtml(agent)}) to apply, then re-verify.`
+      : `<b>Local engine.</b> Accessibility and design checks run in your browser. $0, offline, nothing leaves the tab.`;
   const showRoot = m === "connected";
   // The agent picker only matters in Connected mode; Standalone copies to the
   // clipboard and never spawns an agent, so it hides with the dispatch fields.
