@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { createServer, type Server } from "node:http";
+import { createServer as createHttpServer, type Server } from "node:http";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { renderProfiles } from "../src/playwright-adapter";
+import { createServer as createMcpServer } from "../src/mcp-server";
 
 // A page that is fine in light mode (near-black text on white) but drops to a
 // low-contrast mid-grey on near-black under prefers-color-scheme: dark. A single
@@ -21,7 +24,7 @@ let server: Server;
 let base = "";
 
 beforeAll(async () => {
-  server = createServer((_req, res) => {
+  server = createHttpServer((_req, res) => {
     res.setHeader("content-type", "text/html");
     res.end(HTML);
   });
@@ -51,6 +54,37 @@ describe("connected · renderProfiles (multi-viewport + color-scheme emulation)"
       expect(darkOnly).toBeDefined();
       expect(darkOnly!.in).toContain("desktop-dark");
       expect(darkOnly!.notIn).toContain("desktop-light");
+    },
+    180000,
+  );
+
+  it(
+    "exposes the multi-profile render as the loupe_analyze_responsive MCP tool",
+    async () => {
+      const server = createMcpServer();
+      const [clientT, serverT] = InMemoryTransport.createLinkedPair();
+      const client = new Client({ name: "test", version: "0" }, { capabilities: {} });
+      await Promise.all([server.connect(serverT), client.connect(clientT)]);
+
+      const res = await client.callTool({
+        name: "loupe_analyze_responsive",
+        arguments: {
+          url: base,
+          profiles: [
+            { name: "desktop-light", viewport: { width: 1280, height: 800 }, colorScheme: "light" },
+            { name: "desktop-dark", viewport: { width: 1280, height: 800 }, colorScheme: "dark" },
+          ],
+        },
+      });
+      const text = (res.content as Array<{ text: string }>)[0]?.text ?? "";
+      const report = JSON.parse(text);
+      expect(report.profiles).toHaveLength(2);
+      expect(
+        report.delta.divergent.some(
+          (d: { ruleId: string; in: string[] }) => d.ruleId === "contrast" && d.in.includes("desktop-dark"),
+        ),
+      ).toBe(true);
+      await client.close();
     },
     180000,
   );

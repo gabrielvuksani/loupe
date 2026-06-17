@@ -39,6 +39,17 @@ describe("MCP server", () => {
     expect(text).toMatch(/contrast/i);
     await client.close();
   });
+
+  it("lists the multi-profile responsive analysis tool", async () => {
+    const server = createServer();
+    const [clientT, serverT] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "test", version: "0" }, { capabilities: {} });
+    await Promise.all([server.connect(serverT), client.connect(clientT)]);
+
+    const tools = await client.listTools();
+    expect(tools.tools.map((t) => t.name)).toContain("loupe_analyze_responsive");
+    await client.close();
+  });
 });
 
 describe("MCP server · selection pull", () => {

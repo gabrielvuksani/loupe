@@ -10,7 +10,7 @@ import {
   packetToMarkdown,
   type ElementSnapshot,
 } from "@loupe/engine";
-import { renderAndAnalyze, reverifyAfterFix, type AppliedFix } from "./playwright-adapter";
+import { renderAndAnalyze, reverifyAfterFix, renderProfiles, type AppliedFix, type RenderProfile } from "./playwright-adapter";
 import { createSelectionStore, type SelectionStore } from "./selection-store";
 
 // loupe connected engine as an MCP server. The agent calls these from its own
@@ -93,6 +93,36 @@ export function createServer(store: SelectionStore = createSelectionStore()): Se
           required: ["snapshot"],
         },
       },
+      {
+        name: "loupe_analyze_responsive",
+        description:
+          "Render a URL across viewport sizes and color schemes and report findings per profile plus the divergences between them. The headline is a contrast failure that appears only in dark mode, which a single light render misses. Omit profiles for the default desktop light/dark + phone matrix.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            url: { type: "string", description: "The URL to render (your dev server)." },
+            profiles: {
+              type: "array",
+              description: "Optional render profiles, each {name, viewport:{width,height}, colorScheme?, reducedMotion?}.",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  viewport: {
+                    type: "object",
+                    properties: { width: { type: "number" }, height: { type: "number" } },
+                    required: ["width", "height"],
+                  },
+                  colorScheme: { type: "string", enum: ["light", "dark", "no-preference"] },
+                  reducedMotion: { type: "string", enum: ["reduce", "no-preference"] },
+                },
+                required: ["name", "viewport"],
+              },
+            },
+          },
+          required: ["url"],
+        },
+      },
     ],
   }));
 
@@ -152,6 +182,11 @@ export function createServer(store: SelectionStore = createSelectionStore()): Se
         return {
           content: [{ type: "text", text: packetToMarkdown(buildPacket(snap, findings)) }],
         };
+      }
+      if (name === "loupe_analyze_responsive") {
+        const profiles = Array.isArray(args["profiles"]) ? (args["profiles"] as RenderProfile[]) : undefined;
+        const report = await renderProfiles(String(args["url"]), profiles);
+        return { content: [{ type: "text", text: JSON.stringify(report, null, 2) }] };
       }
       return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };
     } catch (e) {
