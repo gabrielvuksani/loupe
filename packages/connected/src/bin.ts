@@ -30,9 +30,29 @@ function launchHttpMcp(): void {
   );
 }
 
-if (mode === "--bridge") {
+const HELP = `loupe-cli · deterministic design + accessibility detection for your coding agent
+
+Usage:
+  npx loupe-cli serve          Start the daemon: WebSocket bridge (browser) + MCP over HTTP (agent)
+  npx loupe-cli extension      Unpack the Lens to ./loupe-extension to load in Chrome
+  npx loupe-cli mcp            Speak MCP over stdio (for: claude mcp add --transport stdio)
+  npx loupe-cli serve --token  Print a one-time token the bridge then requires
+
+After 'serve', register the MCP endpoint with your agent:
+  claude mcp add --transport http loupe http://127.0.0.1:8792/mcp
+  codex  mcp add loupe --url http://127.0.0.1:8792/mcp
+
+Docs: https://github.com/gabrielvuksani/loupe
+`;
+function printHelp(): void {
+  console.log(HELP);
+}
+
+if (mode === "help" || mode === "--help" || mode === "-h") {
+  printHelp();
+} else if (mode === "--bridge") {
   launchBridge();
-} else if (mode === "--mcp") {
+} else if (mode === "--mcp" || mode === "mcp") {
   runMcp(store).catch((e: unknown) => {
     console.error(e);
     process.exit(1);
@@ -60,9 +80,14 @@ if (mode === "--bridge") {
   console.log("  3. Click 'Load unpacked' and select the folder above");
   console.log("  4. Click the Loupe icon to open the side panel\n");
 } else {
-  // Back-compat bare invocation: speak stdio MCP for `... add --transport stdio`.
-  runMcp(store).catch((e: unknown) => {
-    console.error(e);
-    process.exit(1);
-  });
+  // No subcommand: print usage in an interactive terminal, but speak stdio MCP
+  // when piped, so `claude mcp add --transport stdio -- npx loupe-cli` still works.
+  if (process.stdin.isTTY) {
+    printHelp();
+  } else {
+    runMcp(store).catch((e: unknown) => {
+      console.error(e);
+      process.exit(1);
+    });
+  }
 }
