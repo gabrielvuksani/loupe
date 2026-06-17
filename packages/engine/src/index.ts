@@ -9,6 +9,7 @@ export { responsiveFindings } from "./responsive";
 export { colorVisionFindings, simulateCvd, svgColorMatrix, CVD_MATRICES } from "./vision";
 export { systemFindings, systemPageFindings, tokensFromCss, mergeDesignSystems } from "./system";
 export { focusFindings } from "./focus";
+export { profileDelta } from "./viewport";
 export type {
   ElementSnapshot,
   ElementStyles,
@@ -25,3 +26,4 @@ export type { ViewportProbe } from "./responsive";
 export type { CvdType } from "./vision";
 export type { DesignSystem } from "./system";
 export type { FocusProbe } from "./focus";
+export type { ProfileFindings, DivergentFinding, ProfileDelta } from "./viewport";
