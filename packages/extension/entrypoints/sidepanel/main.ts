@@ -298,6 +298,32 @@ function renderPacket(packet: ElementPacket, markdown: string): void {
   document.getElementById("dispatch")?.addEventListener("click", doDispatch);
 }
 
+// The page's heading tree (Polypane-style outline), with skipped levels flagged.
+function renderOutline(
+  entries: ReadonlyArray<{ level: number; text: string; skipped: boolean }>,
+  noH1: boolean,
+): void {
+  $("scoreHost").innerHTML = `<div class="ecard">
+    <div class="etop"><span class="etag">Outline</span><span class="spill">${entries.length} heading(s)</span></div>
+    ${noH1 ? `<div class="esub" style="color: var(--red)">No h1 on the page</div>` : ""}
+  </div>`;
+  $("findings").innerHTML = entries.length
+    ? entries
+        .map(
+          (e, i) =>
+            `<div class="finding"><div class="top"><span class="hlevel${e.skipped ? " skip" : ""}">H${e.level}</span><span class="t" style="padding-left:${(e.level - 1) * 12}px">${escapeHtml(e.text)}</span></div>${
+              e.skipped ? `<p class="desc" style="color: var(--amber)">Skips a level from the previous heading.</p>` : ""
+            }<div class="row"><button class="act" data-locateheading="${i}">Locate</button></div></div>`,
+        )
+        .join("")
+    : `<div class="empty">No headings found on the page.</div>`;
+  document.querySelectorAll("[data-locateheading]").forEach((b) =>
+    b.addEventListener("click", () =>
+      void toTab({ type: "locate-heading", index: Number((b as HTMLElement).dataset["locateheading"]) }),
+    ),
+  );
+}
+
 function doDispatch(): void {
   if (!lastPacket) return;
   if (mode === "connected") {
@@ -386,6 +412,7 @@ $("inspect").addEventListener("click", () => {
 $("scan").addEventListener("click", () => void toTab({ type: "analyze-page" }));
 $("overflow").addEventListener("click", () => void toTab({ type: "find-overflow" }));
 $("focusorder").addEventListener("click", () => void toTab({ type: "toggle-focus-order" }));
+$("outline").addEventListener("click", () => void toTab({ type: "get-outline" }));
 // Color-vision simulation: a pure client-side overlay, works in either mode.
 $("vision").addEventListener("change", () => {
   const cvd = ($("vision") as HTMLSelectElement).value;
@@ -456,5 +483,8 @@ browser.runtime.onMessage.addListener((message: unknown) => {
     toast(n ? `${n} element(s) push past the viewport` : "No horizontal overflow");
   } else if (msg.type === "focus-order-result") {
     toast((msg as { on?: boolean }).on ? "Focus order shown (red = manual tabindex)" : "Focus order hidden");
+  } else if (msg.type === "outline-result") {
+    const m = msg as { entries?: Array<{ level: number; text: string; skipped: boolean }>; noH1?: boolean };
+    renderOutline(m.entries ?? [], m.noH1 ?? false);
   }
 });

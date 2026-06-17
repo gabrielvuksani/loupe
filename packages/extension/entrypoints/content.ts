@@ -15,8 +15,9 @@ import {
 } from "@loupe/engine";
 import { popoverHtml } from "./lib/view";
 import { placePopover } from "./lib/position";
-import { nearestGaps } from "./lib/measure";
+import { nearestGaps, betweenGaps } from "./lib/measure";
 import { focusOrder } from "./lib/focus-order";
+import { buildOutline } from "./lib/outline";
 import { cropRect } from "./lib/crop";
 import { axeViolationsToFindings, type AxeViolation } from "./lib/axe-findings";
 
@@ -127,6 +128,27 @@ export default defineContentScript({
       if (gaps.left !== undefined) addGuide(host, t.left - gaps.left, cy, gaps.left, true, `${Math.round(gaps.left)}`);
       if (gaps.bottom !== undefined) addGuide(host, cx, t.bottom, gaps.bottom, false, `${Math.round(gaps.bottom)}`);
       if (gaps.top !== undefined) addGuide(host, cx, t.top - gaps.top, gaps.top, false, `${Math.round(gaps.top)}`);
+      host.style.display = "block";
+    };
+    // VisBug's two-element measure: with one element selected, holding Shift and
+    // hovering a second element shows the edge-to-edge distance between the two.
+    const drawBetween = (aEl: Element, bEl: Element): void => {
+      const host = ensureGuides();
+      host.replaceChildren();
+      const a = aEl.getBoundingClientRect();
+      const b = bEl.getBoundingClientRect();
+      // A dashed outline on the second element so the measured pair is unambiguous.
+      const mark = document.createElement("div");
+      mark.style.cssText = `position:fixed;left:${b.left - 1}px;top:${b.top - 1}px;width:${b.width}px;height:${b.height}px;border:1px dashed #5fd0a8;box-sizing:border-box;`;
+      host.appendChild(mark);
+      const gaps = betweenGaps(
+        { top: a.top, right: a.right, bottom: a.bottom, left: a.left },
+        { top: b.top, right: b.right, bottom: b.bottom, left: b.left },
+      );
+      const acx = (a.left + a.right) / 2;
+      const acy = (a.top + a.bottom) / 2;
+      if (gaps.dx !== undefined) addGuide(host, a.right <= b.left ? a.right : b.right, acy, gaps.dx, true, `${Math.round(gaps.dx)}`);
+      if (gaps.dy !== undefined) addGuide(host, acx, a.bottom <= b.top ? a.bottom : b.bottom, gaps.dy, false, `${Math.round(gaps.dy)}`);
       host.style.display = "block";
     };
 
@@ -562,14 +584,16 @@ export default defineContentScript({
       t === popHost || t === hl || (t instanceof Element && t.id === "loupe-cvd-defs");
     const onMove = (e: MouseEvent): void => {
       const el = e.target as Element | null;
-      if (inspecting && el && !isOwnUi(el)) {
-        moveHl(el);
-        // Recompute the spacing guides only when the hovered element changes, not
-        // on every micro-move within it.
-        if (el !== guideEl) {
-          drawGuides(el);
-          guideEl = el;
-        }
+      if (!inspecting || !el || isOwnUi(el)) return;
+      moveHl(el);
+      // Shift while a selection is live: measure the distance between the two.
+      if (current && e.shiftKey && el !== current.el) {
+        drawBetween(current.el, el);
+        guideEl = null; // force a neighbor-guide redraw once Shift releases
+      } else if (el !== guideEl) {
+        // Recompute neighbor guides only when the hovered element changes.
+        drawGuides(el);
+        guideEl = el;
       }
     };
     const onClick = (e: MouseEvent): void => {
@@ -617,6 +641,18 @@ export default defineContentScript({
       if (!fromPanel) void browser.runtime.sendMessage({ type: "inspect-stopped" }).catch(() => {});
     };
 
+    // Collect the page's heading tree in document order for the outline view.
+    const HEADING_SEL = "h1,h2,h3,h4,h5,h6,[role=heading]";
+    const collectHeadings = (): { el: Element; level: number; text: string }[] =>
+      Array.from(document.querySelectorAll(HEADING_SEL))
+        .filter((el) => !isOwnUi(el))
+        .map((el) => {
+          const m = /^h([1-6])$/.exec(el.tagName.toLowerCase());
+          const level = m ? Number(m[1]) : Number(el.getAttribute("aria-level")) || 2;
+          return { el, level, text: (el.textContent ?? "").trim().slice(0, 80) };
+        })
+        .filter((h) => h.text.length > 0);
+
     browser.runtime.onMessage.addListener((message: unknown) => {
       const msg = message as {
         type?: string;
@@ -627,6 +663,7 @@ export default defineContentScript({
         property?: string;
         to?: string;
         cvd?: string;
+        index?: number;
       };
       if (msg.type === "set-inspect") {
         if (msg.value) startInspecting(true);
@@ -669,6 +706,19 @@ export default defineContentScript({
       } else if (msg.type === "toggle-focus-order") {
         const on = toggleFocusOrder();
         void browser.runtime.sendMessage({ type: "focus-order-result", on }).catch(() => {});
+      } else if (msg.type === "get-outline") {
+        const heads = collectHeadings();
+        const outline = buildOutline(heads.map((h) => ({ level: h.level, text: h.text })));
+        void browser.runtime
+          .sendMessage({ type: "outline-result", entries: outline.entries, noH1: outline.noH1 })
+          .catch(() => {});
+      } else if (msg.type === "locate-heading" && typeof msg.index === "number") {
+        const h = collectHeadings()[msg.index];
+        if (h) {
+          moveHl(h.el);
+          h.el.scrollIntoView({ block: "center", behavior: "smooth" });
+          window.setTimeout(hideHl, 1400);
+        }
       }
     });
   },

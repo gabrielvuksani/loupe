@@ -36,3 +36,15 @@ export function nearestGaps(target: Box, candidates: readonly Box[]): Gaps {
   }
   return gaps;
 }
+
+// Edge-to-edge distance between two arbitrary boxes: the horizontal gap when they
+// do not overlap horizontally, the vertical gap when they do not overlap
+// vertically. Both undefined means they overlap on both axes (no clean gap).
+export function betweenGaps(a: Box, b: Box): { dx?: number; dy?: number } {
+  const out: { dx?: number; dy?: number } = {};
+  if (b.left >= a.right) out.dx = b.left - a.right;
+  else if (a.left >= b.right) out.dx = a.left - b.right;
+  if (b.top >= a.bottom) out.dy = b.top - a.bottom;
+  else if (a.top >= b.bottom) out.dy = a.top - b.bottom;
+  return out;
+}

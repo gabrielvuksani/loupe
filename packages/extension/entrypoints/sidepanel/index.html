@@ -63,6 +63,10 @@
       .note b { color: var(--ink); font-weight: 600; }
 
       .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+      .tools { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
+      .btn.sm { padding: 9px 6px; font-size: 11.5px; }
+      .hlevel { font-family: "Geist Mono", monospace; font-size: 10px; font-weight: 700; color: var(--gold); background: rgba(232,181,74,0.12); padding: 1px 6px; border-radius: 5px; flex-shrink: 0; }
+      .hlevel.skip { color: var(--amber); background: rgba(255,180,84,0.14); }
       .btn {
         font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
         padding: 11px; border-radius: 11px; border: 1px solid var(--line2); background: rgba(255,255,255,0.04); color: var(--ink);
@@ -145,8 +149,11 @@
       <div class="actions">
         <button class="btn" id="inspect">Inspect element</button>
         <button class="btn" id="scan">Scan page</button>
-        <button class="btn" id="overflow">Find overflow</button>
-        <button class="btn" id="focusorder">Focus order</button>
+      </div>
+      <div class="tools">
+        <button class="btn sm" id="overflow">Overflow</button>
+        <button class="btn sm" id="focusorder">Focus order</button>
+        <button class="btn sm" id="outline">Outline</button>
       </div>
 
       <div class="label">Color vision</div>
