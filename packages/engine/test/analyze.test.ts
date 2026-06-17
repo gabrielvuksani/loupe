@@ -241,3 +241,38 @@ describe("analyzeElement: no false positives", () => {
     expect(findings).toEqual([]);
   });
 });
+
+describe("analyzeElement: link text", () => {
+  it("flags a link whose accessible name is a generic phrase", () => {
+    const findings = analyzeElement({
+      selector: "a.more",
+      tag: "a",
+      styles: { display: "inline-block" },
+      a11y: { role: "link", name: "Read more" },
+    });
+    const f = findings.find((x) => x.ruleId === "link-text");
+    expect(f).toBeDefined();
+    expect(f?.category).toBe("a11y");
+    expect(f?.message).toMatch(/destination|describe|where/i);
+  });
+
+  it("does not flag a descriptive link", () => {
+    const findings = analyzeElement({
+      selector: "a.pricing",
+      tag: "a",
+      styles: { display: "inline-block" },
+      a11y: { role: "link", name: "See 2026 pricing plans" },
+    });
+    expect(findings.find((x) => x.ruleId === "link-text")).toBeUndefined();
+  });
+
+  it("does not flag a button whose short label is an action verb", () => {
+    const findings = analyzeElement({
+      selector: "button.cta",
+      tag: "button",
+      styles: {},
+      a11y: { role: "button", name: "Go" },
+    });
+    expect(findings.find((x) => x.ruleId === "link-text")).toBeUndefined();
+  });
+});

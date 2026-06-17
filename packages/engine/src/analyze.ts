@@ -10,6 +10,20 @@ const MIN_WRAPPING_TEXT = 60; // Below this the text cannot fill a wide line, so
 const AVG_GLYPH_RATIO = 0.5; // Mean glyph advance approximated as half the font size.
 const GENERIC_TAGS = new Set(["div", "span"]);
 const SEMANTIC_FOR_ROLE: Record<string, string> = { button: "<button>", link: "<a>" };
+// Link labels that read the same out of context: a screen-reader user tabbing
+// through links hears only these, with no idea where each goes (WCAG 2.4.4).
+const VAGUE_LINK_TEXT = new Set([
+  "click here",
+  "here",
+  "read more",
+  "learn more",
+  "more",
+  "details",
+  "this link",
+  "link",
+  "click",
+  "see more",
+]);
 
 // Element-level rules: contrast and target size.
 export function analyzeElement(snapshot: ElementSnapshot): Finding[] {
@@ -119,6 +133,21 @@ export function analyzeElement(snapshot: ElementSnapshot): Finding[] {
         });
       }
     }
+  }
+
+  // link-text: a link whose entire accessible name is a generic phrase tells a
+  // screen-reader user scanning links nothing about its destination. axe's
+  // link-name only catches an empty name; this catches the unhelpful ones.
+  const isLink = snapshot.tag === "a" || snapshot.a11y?.role === "link";
+  const linkName = snapshot.a11y?.name?.trim();
+  if (isLink && linkName && VAGUE_LINK_TEXT.has(linkName.toLowerCase())) {
+    findings.push({
+      ruleId: "link-text",
+      category: "a11y",
+      severity: "low",
+      selector: snapshot.selector,
+      message: `Link text "${linkName}" doesn't describe its destination. Rewrite it to say where the link goes (WCAG 2.4.4).`,
+    });
   }
 
   return findings;
