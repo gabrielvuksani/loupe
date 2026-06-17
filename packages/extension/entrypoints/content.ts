@@ -15,9 +15,8 @@ import {
 } from "@loupe/engine";
 import { popoverHtml } from "./lib/view";
 import { placePopover } from "./lib/position";
-import { nearestGaps, betweenGaps } from "./lib/measure";
+import { betweenGaps } from "./lib/measure";
 import { focusOrder } from "./lib/focus-order";
-import { buildOutline } from "./lib/outline";
 import { cropRect } from "./lib/crop";
 import { axeViolationsToFindings, type AxeViolation } from "./lib/axe-findings";
 
@@ -37,11 +36,12 @@ export default defineContentScript({
     let mode: "standalone" | "connected" = "standalone";
     let agent = "Claude Code";
     let hl: HTMLElement | null = null;
-    let guides: HTMLElement | null = null;
-    let guideEl: Element | null = null;
     let popHost: HTMLElement | null = null;
     let popBody: HTMLElement | null = null;
     let current: { el: Element; packet: ElementPacket } | null = null;
+    // The change request typed in the panel, pushed here so an in-page Copy
+    // carries it too. The popover and the panel should never disagree.
+    let currentRequest = "";
 
     // ---------- highlight ----------
     const ensureHl = (): HTMLElement => {
@@ -80,24 +80,14 @@ export default defineContentScript({
       if (hl) hl.style.display = "none";
     };
 
-    // ---------- spacing guides (VisBug-style distance to neighbors) ----------
-    const ensureGuides = (): HTMLElement => {
-      if (!guides) {
-        guides = document.createElement("div");
-        guides.style.cssText = "position:fixed;inset:0;z-index:2147483645;pointer-events:none;display:none;";
-        document.documentElement.appendChild(guides);
-      }
-      return guides;
+    // ---------- two-element measure (VisBug: hold Shift, hover a second element) ----------
+    // Deliberate only: this draws nothing until you hold Shift with a selection
+    // live, unlike the ambient hover guides that painted the page on every move.
+    let measureHost: HTMLElement | null = null;
+    const clearMeasure = (): void => {
+      if (measureHost) measureHost.replaceChildren();
     };
-    const clearGuides = (): void => {
-      if (guides) {
-        guides.replaceChildren();
-        guides.style.display = "none";
-      }
-      guideEl = null;
-    };
-    // One mint dashed line spanning a gap, with a px badge at its midpoint.
-    const addGuide = (host: HTMLElement, x: number, y: number, len: number, horizontal: boolean, label: string): void => {
+    const measureGuide = (host: HTMLElement, x: number, y: number, len: number, horizontal: boolean, label: string): void => {
       const col = "#5fd0a8";
       const line = document.createElement("div");
       line.style.cssText = horizontal
@@ -111,45 +101,26 @@ export default defineContentScript({
         `padding:1px 4px;border-radius:3px;white-space:nowrap;`;
       host.append(line, tag);
     };
-    const drawGuides = (el: Element): void => {
-      const host = ensureGuides();
-      host.replaceChildren();
-      const t = el.getBoundingClientRect();
-      const kids = el.parentElement ? Array.from(el.parentElement.children) : [];
-      const rects = kids
-        .filter((c) => c !== el && !isOwnUi(c))
-        .map((c) => c.getBoundingClientRect())
-        .filter((r) => r.width > 0 && r.height > 0)
-        .map((r) => ({ top: r.top, right: r.right, bottom: r.bottom, left: r.left }));
-      const gaps = nearestGaps({ top: t.top, right: t.right, bottom: t.bottom, left: t.left }, rects);
-      const cx = (t.left + t.right) / 2;
-      const cy = (t.top + t.bottom) / 2;
-      if (gaps.right !== undefined) addGuide(host, t.right, cy, gaps.right, true, `${Math.round(gaps.right)}`);
-      if (gaps.left !== undefined) addGuide(host, t.left - gaps.left, cy, gaps.left, true, `${Math.round(gaps.left)}`);
-      if (gaps.bottom !== undefined) addGuide(host, cx, t.bottom, gaps.bottom, false, `${Math.round(gaps.bottom)}`);
-      if (gaps.top !== undefined) addGuide(host, cx, t.top - gaps.top, gaps.top, false, `${Math.round(gaps.top)}`);
-      host.style.display = "block";
-    };
-    // VisBug's two-element measure: with one element selected, holding Shift and
-    // hovering a second element shows the edge-to-edge distance between the two.
     const drawBetween = (aEl: Element, bEl: Element): void => {
-      const host = ensureGuides();
-      host.replaceChildren();
+      if (!measureHost) {
+        measureHost = document.createElement("div");
+        measureHost.style.cssText = "position:fixed;inset:0;z-index:2147483645;pointer-events:none;";
+        document.documentElement.appendChild(measureHost);
+      }
+      measureHost.replaceChildren();
       const a = aEl.getBoundingClientRect();
       const b = bEl.getBoundingClientRect();
-      // A dashed outline on the second element so the measured pair is unambiguous.
       const mark = document.createElement("div");
       mark.style.cssText = `position:fixed;left:${b.left - 1}px;top:${b.top - 1}px;width:${b.width}px;height:${b.height}px;border:1px dashed #5fd0a8;box-sizing:border-box;`;
-      host.appendChild(mark);
+      measureHost.appendChild(mark);
       const gaps = betweenGaps(
         { top: a.top, right: a.right, bottom: a.bottom, left: a.left },
         { top: b.top, right: b.right, bottom: b.bottom, left: b.left },
       );
       const acx = (a.left + a.right) / 2;
       const acy = (a.top + a.bottom) / 2;
-      if (gaps.dx !== undefined) addGuide(host, a.right <= b.left ? a.right : b.right, acy, gaps.dx, true, `${Math.round(gaps.dx)}`);
-      if (gaps.dy !== undefined) addGuide(host, acx, a.bottom <= b.top ? a.bottom : b.bottom, gaps.dy, false, `${Math.round(gaps.dy)}`);
-      host.style.display = "block";
+      if (gaps.dx !== undefined) measureGuide(measureHost, a.right <= b.left ? a.right : b.right, acy, gaps.dx, true, `${Math.round(gaps.dx)}`);
+      if (gaps.dy !== undefined) measureGuide(measureHost, acx, a.bottom <= b.top ? a.bottom : b.bottom, gaps.dy, false, `${Math.round(gaps.dy)}`);
     };
 
     // ---------- overflow highlight (which elements push past the viewport) ----------
@@ -503,6 +474,9 @@ export default defineContentScript({
         const cropped = await cropToElement(dataUrl, el);
         if (cropped && current?.el === el) {
           current = { el, packet: { ...current.packet, screenshot: cropped } };
+          // Re-render so the shot actually appears in the popover. Both modes
+          // capture; before this the image was set but never shown.
+          renderPopover(current.packet);
           publish(current.packet);
         }
       } catch {
@@ -518,17 +492,26 @@ export default defineContentScript({
         markdown: packetToMarkdown(packet),
       });
     };
+    // Show the popover instantly with the deterministic findings, then fold in
+    // axe once it is ready. Blocking the first click on axe (a ~580KB lazy inject)
+    // made inspect feel dead. A screenshot that has already arrived is preserved.
     const onInspectClick = async (el: Element): Promise<void> => {
       const snap = snapshotOf(el);
-      const findings =
-        mode === "standalone"
-          ? [...analyzeElement(snap), ...(await axeFindings(el))]
-          : analyzeElement(snap);
-      const packet = buildPacket(snap, findings);
-      current = { el, packet };
-      renderPopover(packet);
-      publish(packet);
+      const base = analyzeElement(snap);
+      const show = (findings: Finding[]): void => {
+        const shot = current?.el === el ? current.packet.screenshot : undefined;
+        const packet = buildPacket(snap, findings);
+        if (shot) packet.screenshot = shot;
+        current = { el, packet };
+        renderPopover(packet);
+        publish(packet);
+      };
+      show(base);
       void requestScreenshot(el);
+      if (mode === "standalone") {
+        const axe = await axeFindings(el);
+        if (axe.length && current?.el === el) show([...base, ...axe]);
+      }
     };
 
     // Swap a popover button's label for a moment, then restore it. The popover's
@@ -565,10 +548,18 @@ export default defineContentScript({
       );
     };
 
+    // Fold the panel's change request into the copied prompt so the in-page Copy
+    // and the panel Copy never disagree.
+    const withRequest = (md: string): string => {
+      const r = currentRequest.trim();
+      return r
+        ? `${md}\n\n---\nThe change I want:\n"${r}"\n\nApply this to the source for this element and keep the surrounding design consistent.`
+        : md;
+    };
     const onAction = (action: string, btn?: HTMLElement): void => {
       if (!current) return;
       if (action === "copy") {
-        copyPacket(packetToMarkdown(current.packet), btn);
+        copyPacket(withRequest(packetToMarkdown(current.packet)), btn);
       } else if (action === "send") {
         void browser.runtime.sendMessage({ type: "dispatch-current" });
       } else if (action === "preview") {
@@ -637,20 +628,19 @@ export default defineContentScript({
     // popover buttons from ever firing. The same guard keeps the highlight off
     // our overlays.
     const isOwnUi = (t: EventTarget | null): boolean =>
-      t === popHost || t === hl || (t instanceof Element && t.id === "loupe-cvd-defs");
+      t === popHost ||
+      t === hl ||
+      t === measureHost ||
+      t === overflowHost ||
+      t === focusHost ||
+      (t instanceof Element && t.id === "loupe-cvd-defs");
     const onMove = (e: MouseEvent): void => {
       const el = e.target as Element | null;
       if (!inspecting || !el || isOwnUi(el)) return;
       moveHl(el);
-      // Shift while a selection is live: measure the distance between the two.
-      if (current && e.shiftKey && el !== current.el) {
-        drawBetween(current.el, el);
-        guideEl = null; // force a neighbor-guide redraw once Shift releases
-      } else if (el !== guideEl) {
-        // Recompute neighbor guides only when the hovered element changes.
-        drawGuides(el);
-        guideEl = el;
-      }
+      // Shift with a live selection measures the distance to the hovered element.
+      if (current && e.shiftKey && el !== current.el) drawBetween(current.el, el);
+      else clearMeasure();
     };
     const onClick = (e: MouseEvent): void => {
       if (!inspecting) return;
@@ -693,21 +683,32 @@ export default defineContentScript({
       document.removeEventListener("keydown", onKey, true);
       hideHl();
       hidePopover();
-      clearGuides();
+      clearMeasure();
       if (!fromPanel) void browser.runtime.sendMessage({ type: "inspect-stopped" }).catch(() => {});
     };
 
-    // Collect the page's heading tree in document order for the outline view.
-    const HEADING_SEL = "h1,h2,h3,h4,h5,h6,[role=heading]";
-    const collectHeadings = (): { el: Element; level: number; text: string }[] =>
-      Array.from(document.querySelectorAll(HEADING_SEL))
-        .filter((el) => !isOwnUi(el))
-        .map((el) => {
-          const m = /^h([1-6])$/.exec(el.tagName.toLowerCase());
-          const level = m ? Number(m[1]) : Number(el.getAttribute("aria-level")) || 2;
-          return { el, level, text: (el.textContent ?? "").trim().slice(0, 80) };
-        })
-        .filter((h) => h.text.length > 0);
+    // ---------- scan animation ----------
+    // A gold line sweeps the viewport while the page is analyzed, so a scan reads
+    // as a scan instead of a frozen click.
+    let scanHost: HTMLElement | null = null;
+    const startScan = (): void => {
+      if (!scanHost) {
+        scanHost = document.createElement("div");
+        scanHost.style.cssText = "position:fixed;inset:0;z-index:2147483643;pointer-events:none;overflow:hidden;";
+        const style = document.createElement("style");
+        style.textContent = "@keyframes loupe-scan{0%{transform:translateY(-6px)}100%{transform:translateY(100vh)}}";
+        const line = document.createElement("div");
+        line.style.cssText =
+          "position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#e8b54a,transparent);" +
+          "box-shadow:0 0 20px 5px rgba(232,181,74,.45);animation:loupe-scan .85s cubic-bezier(.4,0,.2,1) infinite;";
+        scanHost.append(style, line);
+        document.documentElement.appendChild(scanHost);
+      }
+      scanHost.style.display = "block";
+    };
+    const stopScan = (): void => {
+      if (scanHost) scanHost.style.display = "none";
+    };
 
     browser.runtime.onMessage.addListener((message: unknown) => {
       const msg = message as {
@@ -719,7 +720,7 @@ export default defineContentScript({
         property?: string;
         to?: string;
         cvd?: string;
-        index?: number;
+        request?: string;
       };
       if (msg.type === "set-inspect") {
         if (msg.value) startInspecting(true);
@@ -732,12 +733,16 @@ export default defineContentScript({
         if (msg.agent) agent = msg.agent;
         if (current) renderPopover(current.packet);
       } else if (msg.type === "analyze-page") {
+        startScan();
         void (async () => {
           const page = capturePage(document);
           // axe runs in BOTH modes: the page scan is an accessibility report
           // first, so it must always carry the real a11y findings, never just
           // the subjective design notes.
           const findings = [...analyzePage(page), ...(await axeFindings(document))];
+          // Keep the sweep visible briefly so a fast scan still reads as one.
+          await new Promise((r) => window.setTimeout(r, 550));
+          stopScan();
           void browser.runtime.sendMessage({
             type: "page-result",
             findings,
@@ -762,20 +767,19 @@ export default defineContentScript({
       } else if (msg.type === "toggle-focus-order") {
         const on = toggleFocusOrder();
         void browser.runtime.sendMessage({ type: "focus-order-result", on }).catch(() => {});
-      } else if (msg.type === "get-outline") {
-        const heads = collectHeadings();
-        const outline = buildOutline(heads.map((h) => ({ level: h.level, text: h.text })));
-        void browser.runtime
-          .sendMessage({ type: "outline-result", entries: outline.entries, noH1: outline.noH1 })
-          .catch(() => {});
-      } else if (msg.type === "locate-heading" && typeof msg.index === "number") {
-        const h = collectHeadings()[msg.index];
-        if (h) {
-          moveHl(h.el);
-          h.el.scrollIntoView({ block: "center", behavior: "smooth" });
-          window.setTimeout(hideHl, 1400);
-        }
+      } else if (msg.type === "set-request") {
+        currentRequest = typeof msg.request === "string" ? msg.request : "";
       }
+    });
+
+    // The side panel holds a port open while it is alive. When it closes, the
+    // port disconnects and we stop inspecting, so a closed panel never leaves the
+    // page stuck in inspect mode.
+    browser.runtime.onConnect.addListener((port) => {
+      if (port.name !== "loupe-panel") return;
+      port.onDisconnect.addListener(() => {
+        if (inspecting) stopInspecting(true);
+      });
     });
   },
 });

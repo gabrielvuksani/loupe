@@ -63,10 +63,10 @@
       .note b { color: var(--ink); font-weight: 600; }
 
       .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
-      .tools { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
+      .tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
       .btn.sm { padding: 9px 6px; font-size: 11.5px; }
-      .hlevel { font-family: "Geist Mono", monospace; font-size: 10px; font-weight: 700; color: var(--gold); background: rgba(232,181,74,0.12); padding: 1px 6px; border-radius: 5px; flex-shrink: 0; }
-      .hlevel.skip { color: var(--amber); background: rgba(255,180,84,0.14); }
+      .spinner { width: 14px; height: 14px; margin-left: auto; border: 2px solid var(--line2); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.7s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
       .btn {
         font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
         padding: 11px; border-radius: 11px; border: 1px solid var(--line2); background: rgba(255,255,255,0.04); color: var(--ink);
@@ -136,7 +136,7 @@
         <button class="pill on" data-mode="standalone"><span class="dot"></span>Standalone</button>
         <button class="pill" data-mode="connected"><span class="dot"></span>Connected</button>
       </div>
-      <p class="note" id="modeNote"><b>Local engine.</b> Deterministic checks run in your browser: contrast, target size, type scale, palette. $0, offline, nothing leaves the tab.</p>
+      <p class="note" id="modeNote"><b>Local engine.</b> Accessibility and design checks run in your browser. $0, offline, nothing leaves the tab.</p>
 
       <div class="label" id="agentLabel" style="display: none">Dispatch to</div>
       <div class="pills three" id="agent" style="display: none">
@@ -149,7 +149,7 @@
       <input id="root" class="rootInput" placeholder="/path/to/your/repo" style="display: none" />
       <input id="token" class="rootInput" placeholder="bridge token (only if serve --token)" style="display: none" />
       <div class="label" id="requestLabel">Change request</div>
-      <textarea id="request" class="rootInput" rows="2" placeholder="e.g. make this the primary button, add a hover state" style="resize: vertical; font-family: inherit;"></textarea>
+      <textarea id="request" class="rootInput" rows="2" placeholder="What change do you want? Added to Copy and Send." style="resize: vertical; font-family: inherit;"></textarea>
 
       <div class="actions">
         <button class="btn" id="inspect">Inspect element</button>
@@ -158,7 +158,6 @@
       <div class="tools">
         <button class="btn sm" id="overflow">Overflow</button>
         <button class="btn sm" id="focusorder">Focus order</button>
-        <button class="btn sm" id="outline">Outline</button>
       </div>
 
       <div class="label">Color vision</div>

@@ -311,32 +311,6 @@ function renderPacket(packet: ElementPacket, markdown: string): void {
   document.getElementById("dispatch")?.addEventListener("click", doDispatch);
 }
 
-// The page's heading tree (Polypane-style outline), with skipped levels flagged.
-function renderOutline(
-  entries: ReadonlyArray<{ level: number; text: string; skipped: boolean }>,
-  noH1: boolean,
-): void {
-  $("scoreHost").innerHTML = `<div class="ecard">
-    <div class="etop"><span class="etag">Outline</span><span class="spill">${entries.length} heading(s)</span></div>
-    ${noH1 ? `<div class="esub" style="color: var(--red)">No h1 on the page</div>` : ""}
-  </div>`;
-  $("findings").innerHTML = entries.length
-    ? entries
-        .map(
-          (e, i) =>
-            `<div class="finding"><div class="top"><span class="hlevel${e.skipped ? " skip" : ""}">H${e.level}</span><span class="t" style="padding-left:${(e.level - 1) * 12}px">${escapeHtml(e.text)}</span></div>${
-              e.skipped ? `<p class="desc" style="color: var(--amber)">Skips a level from the previous heading.</p>` : ""
-            }<div class="row"><button class="act" data-locateheading="${i}">Locate</button></div></div>`,
-        )
-        .join("")
-    : `<div class="empty">No headings found on the page.</div>`;
-  document.querySelectorAll("[data-locateheading]").forEach((b) =>
-    b.addEventListener("click", () =>
-      void toTab({ type: "locate-heading", index: Number((b as HTMLElement).dataset["locateheading"]) }),
-    ),
-  );
-}
-
 // The element context plus the user's request, as one self-contained prompt to
 // paste into any agent. This is the zero-setup send-to-agent: no daemon, no MCP.
 function promptWithRequest(markdown: string): string {
@@ -424,16 +398,47 @@ function wireFindingActions(): void {
 }
 
 // ---------- wiring ----------
+// A port the panel holds open while it is alive. When the panel closes the
+// content script sees it disconnect and stops inspecting, so closing the panel
+// never leaves the page stuck in inspect mode.
+let inspectPort: ReturnType<typeof browser.tabs.connect> | null = null;
+async function openInspectPort(): Promise<void> {
+  const id = await activeTabId();
+  if (id == null) return;
+  try {
+    inspectPort = browser.tabs.connect(id, { name: "loupe-panel" });
+  } catch {
+    inspectPort = null;
+  }
+}
+function closeInspectPort(): void {
+  try {
+    inspectPort?.disconnect();
+  } catch {
+    /* ignore */
+  }
+  inspectPort = null;
+}
+function setInspectUI(on: boolean): void {
+  inspecting = on;
+  $("inspect").classList.toggle("on", on);
+  $("inspect").textContent = on ? "Stop inspecting" : "Inspect element";
+}
 $("inspect").addEventListener("click", () => {
-  inspecting = !inspecting;
-  $("inspect").classList.toggle("on", inspecting);
-  $("inspect").textContent = inspecting ? "Stop inspecting" : "Inspect element";
-  void toTab({ type: "set-inspect", value: inspecting });
+  const next = !inspecting;
+  setInspectUI(next);
+  void toTab({ type: "set-inspect", value: next });
+  if (next) void openInspectPort();
+  else closeInspectPort();
 });
-$("scan").addEventListener("click", () => void toTab({ type: "analyze-page" }));
+$("scan").addEventListener("click", () => {
+  $("scoreHost").innerHTML =
+    `<div class="ecard"><div class="etop"><span class="etag">Scanning the page</span><span class="spinner"></span></div></div>`;
+  $("findings").innerHTML = "";
+  void toTab({ type: "analyze-page" });
+});
 $("overflow").addEventListener("click", () => void toTab({ type: "find-overflow" }));
 $("focusorder").addEventListener("click", () => void toTab({ type: "toggle-focus-order" }));
-$("outline").addEventListener("click", () => void toTab({ type: "get-outline" }));
 // Color-vision simulation: a pure client-side overlay, works in either mode.
 $("vision").addEventListener("change", () => {
   const cvd = ($("vision") as HTMLSelectElement).value;
@@ -446,11 +451,13 @@ document.querySelectorAll("#mode .pill").forEach((b) =>
 document.querySelectorAll("#agent .pill").forEach((b) =>
   b.addEventListener("click", () => setAgent((b as HTMLElement).dataset["agent"] as string)),
 );
-// Keep the store's request current so a live, pulling agent sees the latest ask.
+// Keep the change request current everywhere: push it to the page so the in-page
+// popover Copy includes it, and to the bridge so a live, pulling agent sees it.
 $("request").addEventListener("change", () => {
+  const request = ($("request") as HTMLTextAreaElement).value;
+  void toTab({ type: "set-request", request });
   if (mode === "connected" && ws?.readyState === WebSocket.OPEN && lastPacket) {
-    const request = ($("request") as HTMLTextAreaElement).value.trim();
-    ws.send(JSON.stringify({ type: "publish-selection", packet: lastPacket.packet, request }));
+    ws.send(JSON.stringify({ type: "publish-selection", packet: lastPacket.packet, request: request.trim() }));
   }
 });
 
@@ -490,22 +497,17 @@ browser.runtime.onMessage.addListener((message: unknown) => {
   } else if (msg.type === "dispatch-current") {
     doDispatch();
   } else if (msg.type === "inspect-stopped") {
-    // The page stopped inspecting (Escape or hotkey); resync the Inspect toggle.
-    inspecting = false;
-    $("inspect").classList.remove("on");
-    $("inspect").textContent = "Inspect element";
+    // The page stopped inspecting (Escape, hotkey, or panel close); resync.
+    setInspectUI(false);
+    closeInspectPort();
   } else if (msg.type === "inspect-started") {
-    // The page started inspecting (hotkey); resync the Inspect toggle.
-    inspecting = true;
-    $("inspect").classList.add("on");
-    $("inspect").textContent = "Stop inspecting";
+    // The page started inspecting (hotkey); resync and hold the close port.
+    setInspectUI(true);
+    void openInspectPort();
   } else if (msg.type === "overflow-result") {
     const n = (msg as { count?: number }).count ?? 0;
     toast(n ? `${n} element(s) push past the viewport` : "No horizontal overflow");
   } else if (msg.type === "focus-order-result") {
     toast((msg as { on?: boolean }).on ? "Focus order shown (red = manual tabindex)" : "Focus order hidden");
-  } else if (msg.type === "outline-result") {
-    const m = msg as { entries?: Array<{ level: number; text: string; skipped: boolean }>; noH1?: boolean };
-    renderOutline(m.entries ?? [], m.noH1 ?? false);
   }
 });
