@@ -121,8 +121,8 @@ function setMode(m: Mode): void {
   $("rootLabel").style.display = showRoot ? "block" : "none";
   $("root").style.display = showRoot ? "block" : "none";
   $("token").style.display = showRoot ? "block" : "none";
-  $("request").style.display = showRoot ? "block" : "none";
-  $("requestLabel").style.display = showRoot ? "block" : "none";
+  // The change request is useful in both modes: it drives the spawn dispatch in
+  // Connected, and it is folded into the copied prompt in Standalone.
   setConn(showRoot ? "off" : null);
   // a mode switch changes what the audit measures, so reset the climb baselines
   lastPageScore = null;
@@ -300,7 +300,7 @@ function renderPacket(packet: ElementPacket, markdown: string): void {
     <div class="esel">${escapeHtml(packet.selector)}</div>
   </div>`;
   const primary = `<button class="act gold full" id="dispatch">${
-    mode === "connected" ? "Send to " + escapeHtml(agent) : "Copy element packet"
+    mode === "connected" ? "Send to " + escapeHtml(agent) : "Copy for your agent"
   }</button>`;
   $("findings").innerHTML =
     `<div class="pact">${primary}</div>` +
@@ -337,6 +337,14 @@ function renderOutline(
   );
 }
 
+// The element context plus the user's request, as one self-contained prompt to
+// paste into any agent. This is the zero-setup send-to-agent: no daemon, no MCP.
+function promptWithRequest(markdown: string): string {
+  const request = ($("request") as HTMLTextAreaElement).value.trim();
+  if (!request) return markdown;
+  return `${markdown}\n\n---\nThe change I want:\n"${request}"\n\nApply this to the source for this element and keep the surrounding design consistent.`;
+}
+
 function doDispatch(): void {
   if (!lastPacket) return;
   if (mode === "connected") {
@@ -354,8 +362,8 @@ function doDispatch(): void {
     }
   } else {
     void navigator.clipboard
-      .writeText(lastPacket.markdown)
-      .then(() => toast("Packet copied. Paste into your agent"))
+      .writeText(promptWithRequest(lastPacket.markdown))
+      .then(() => toast("Copied with your request. Paste into your agent"))
       .catch(() => toast("Copy failed"));
   }
 }
@@ -392,8 +400,8 @@ async function doBatchDispatch(): Promise<void> {
     }
   } else {
     void navigator.clipboard
-      .writeText(findingsToMarkdown(lastAudit.findings, { score: lastAudit.score.overall }))
-      .then(() => toast("All findings copied. Paste into your agent"))
+      .writeText(promptWithRequest(findingsToMarkdown(lastAudit.findings, { score: lastAudit.score.overall })))
+      .then(() => toast("Copied with your request. Paste into your agent"))
       .catch(() => toast("Copy failed"));
   }
 }

@@ -21,10 +21,13 @@ export interface PageContext {
   score?: number;
 }
 
+// The spawn-dispatch prompt is self-contained: a freshly spawned agent has no
+// loupe MCP, so this never assumes loupe_* tools. It applies the change in the
+// source; loupe re-verifies on its own when the user re-scans.
 function buildPrompt(packet: ElementPacket, request?: string): string {
   const want = (request ?? "").trim();
   const instruction = want
-    ? `The user wants this change applied to the element above:\n"${want}"\n\nMake that change in the source for this element, keep the surrounding design consistent, then re-verify with loupe_reverify.`
+    ? `The user wants this change applied to the element above:\n"${want}"\n\nMake that change in the source for this element and keep the surrounding design consistent.`
     : "Apply the highest-severity fix above to the source for this element. Make the smallest change that resolves the finding, then stop.";
   return [packetToMarkdown(packet), "", instruction].join("\n");
 }
@@ -34,8 +37,8 @@ function buildPrompt(packet: ElementPacket, request?: string): string {
 function buildBatchPrompt(findings: readonly Finding[], request?: string, context?: PageContext): string {
   const want = (request ?? "").trim();
   const instruction = want
-    ? `Across this page, the user wants:\n"${want}"\n\nApply the fixes above in the source with that goal in mind, keep the design consistent, then re-verify with loupe_reverify.`
-    : "Apply the fixes above in the source, highest severity first. Make the smallest change that resolves each finding, keep the design consistent, then re-verify with loupe_reverify.";
+    ? `Across this page, the user wants:\n"${want}"\n\nApply the fixes above in the source with that goal in mind and keep the design consistent.`
+    : "Apply the fixes above in the source, highest severity first. Make the smallest change that resolves each finding and keep the design consistent.";
   return [findingsToMarkdown(findings, context), "", instruction].join("\n");
 }
 
