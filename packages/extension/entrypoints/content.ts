@@ -46,6 +46,12 @@ export default defineContentScript({
         // mousemove, so a transition makes the highlight trail the cursor.
         hl.style.cssText =
           "position:fixed;z-index:2147483646;pointer-events:none;border:2px solid #e8b54a;border-radius:6px;box-shadow:0 0 0 1px rgba(232,181,74,.25),0 0 22px -2px rgba(232,181,74,.5);background:rgba(232,181,74,.07);display:none;";
+        // A VisBug-style size badge: read an element's dimensions on hover, before
+        // selecting it. It rides inside the (pointer-events:none) highlight host.
+        const badge = document.createElement("div");
+        badge.style.cssText =
+          "position:absolute;left:-2px;font:600 10px/1 ui-monospace,monospace;color:#1a1407;background:#e8b54a;padding:2px 5px;border-radius:4px;white-space:nowrap;";
+        hl.appendChild(badge);
         document.documentElement.appendChild(hl);
       }
       return hl;
@@ -58,6 +64,12 @@ export default defineContentScript({
       h.style.top = `${r.top - 2}px`;
       h.style.width = `${r.width}px`;
       h.style.height = `${r.height}px`;
+      const badge = h.firstElementChild as HTMLElement | null;
+      if (badge) {
+        badge.textContent = `${Math.round(r.width)} × ${Math.round(r.height)}`;
+        // Sit above the box, or tuck inside when the element hugs the viewport top.
+        badge.style.top = r.top < 22 ? "2px" : "-19px";
+      }
     };
     const hideHl = (): void => {
       if (hl) hl.style.display = "none";
