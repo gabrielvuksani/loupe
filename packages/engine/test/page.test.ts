@@ -19,13 +19,18 @@ describe("analyzePage: typography and palette taste rules", () => {
     expect(f?.message).toMatch(/font famil/i);
   });
 
-  it("flags type-scale steps closer than 25% (they read as the same size)", () => {
-    // 16 → 18 is 1.125× apart, below the 1.25 minimum.
-    const findings = analyzePage({ ...clean, fontSizesPx: [16, 18, 32] });
+  it("flags near-duplicate font sizes (an accident, not a deliberate step)", () => {
+    // 15 and 16 are 6.7% apart: near-duplicates.
+    const findings = analyzePage({ ...clean, fontSizesPx: [15, 16, 32] });
     const f = findings.find((x) => x.ruleId === "type-scale");
     expect(f).toBeDefined();
     expect(f?.category).toBe("taste");
-    expect(f?.message).toMatch(/25%|1\.25|apart/i);
+    expect(f?.message).toMatch(/identical|apart|pick one/i);
+  });
+
+  it("leaves a legitimate scale step like 16 to 18 alone", () => {
+    const findings = analyzePage({ ...clean, fontSizesPx: [16, 18, 32] });
+    expect(findings.find((x) => x.ruleId === "type-scale")).toBeUndefined();
   });
 
   it("flags too many distinct font weights (>3)", () => {

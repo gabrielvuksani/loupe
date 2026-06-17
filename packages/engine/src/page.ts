@@ -3,7 +3,10 @@ import { converter } from "culori";
 import { colorVisionFindings } from "./vision";
 
 const toOklch = converter("oklch");
-const MIN_SCALE_RATIO = 1.25; // Refactoring UI: no two type-scale steps closer than 25%.
+// Two sizes within ~8% are near-duplicates (15px and 16px), almost always an
+// accident rather than a deliberate step. A real scale (1.125, 1.2, 1.25) is left
+// alone, so this no longer scolds a legitimate type ramp.
+const MIN_SCALE_RATIO = 1.08;
 const MAX_FONT_FAMILIES = 2;
 const MAX_FONT_WEIGHTS = 3;
 const SPACING_GRID = 4; // Refactoring UI: spacing lives on a consistent scale.
@@ -63,7 +66,7 @@ export function analyzePage(snapshot: PageSnapshot): Finding[] {
         category: "taste",
         severity: "low",
         selector: ":root",
-        message: `Font sizes ${lo}px and ${hi}px are ${Math.round((hi / lo - 1) * 100)}% apart, under the 25% minimum. Collapse to one.`,
+        message: `Font sizes ${lo}px and ${hi}px are nearly identical (${Math.round((hi / lo - 1) * 100)}% apart). Pick one.`,
       });
     }
   }
