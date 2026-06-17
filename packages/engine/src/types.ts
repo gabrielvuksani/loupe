@@ -38,6 +38,13 @@ export interface ElementSnapshot {
   box?: { x?: number; y?: number; width: number; height: number };
   outerHTML?: string;
   a11y?: A11yNode;
+  // Containment path from meaningful ancestors down to the element, so a model
+  // sees where it sits in the page, not just a selector to match.
+  ancestors?: Array<{ tag: string; id?: string; cls?: string; role?: string }>;
+  // Position among same-tag siblings (1-based): the 2nd of 3 <a>, say.
+  nth?: { index: number; total: number };
+  // Identifying attributes (id, data-testid, name, type, href, aria-label, ...).
+  attrs?: Record<string, string>;
   // The authored tabindex attribute, when present (not the default IDL value).
   tabIndex?: number;
   source?: SourceLocation;

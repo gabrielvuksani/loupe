@@ -10,6 +10,9 @@ export interface ElementPacket {
   styles: ElementSnapshot["styles"];
   box?: ElementSnapshot["box"];
   a11y?: ElementSnapshot["a11y"];
+  ancestors?: ElementSnapshot["ancestors"];
+  nth?: ElementSnapshot["nth"];
+  attrs?: ElementSnapshot["attrs"];
   source?: ElementSnapshot["source"];
   outerHTML?: string;
   screenshot?: string;
@@ -33,6 +36,9 @@ export function buildPacket(snapshot: ElementSnapshot, findings: Finding[]): Ele
   if (snapshot.text !== undefined) packet.text = snapshot.text;
   if (snapshot.box !== undefined) packet.box = snapshot.box;
   if (snapshot.a11y !== undefined) packet.a11y = snapshot.a11y;
+  if (snapshot.ancestors !== undefined) packet.ancestors = snapshot.ancestors;
+  if (snapshot.nth !== undefined) packet.nth = snapshot.nth;
+  if (snapshot.attrs !== undefined) packet.attrs = snapshot.attrs;
   if (snapshot.source !== undefined) packet.source = snapshot.source;
   if (snapshot.outerHTML !== undefined) packet.outerHTML = snapshot.outerHTML;
   if (snapshot.screenshot !== undefined) packet.screenshot = snapshot.screenshot;
@@ -91,6 +97,24 @@ export function packetToMarkdown(packet: ElementPacket): string {
     const name = packet.a11y.name ? ` · name "${packet.a11y.name}"` : "";
     lines.push(`Role: ${packet.a11y.role}${name}`);
   }
+  // The containment path, sibling position, and identifying attributes give a
+  // weak model several independent ways to find this exact element.
+  if (packet.ancestors?.length) {
+    const path = packet.ancestors
+      .map((a) => `${a.tag}${a.id ? `#${a.id}` : ""}${a.cls ? `.${a.cls}` : ""}${a.role ? `[role=${a.role}]` : ""}`)
+      .join(" > ");
+    lines.push(`Path: ${path} > ${packet.tag}`);
+  }
+  if (packet.nth && packet.nth.total > 1) {
+    lines.push(`Position: ${ordinal(packet.nth.index)} of ${packet.nth.total} <${packet.tag}> in its parent`);
+  }
+  if (packet.attrs && Object.keys(packet.attrs).length) {
+    lines.push(
+      `Attributes: ${Object.entries(packet.attrs)
+        .map(([k, v]) => `${k}="${v}"`)
+        .join(", ")}`,
+    );
+  }
   if (packet.source) {
     const at = packet.source.line ? `:${packet.source.line}` : "";
     lines.push(`Source: ${packet.source.file}${at}`);
@@ -123,4 +147,11 @@ export function packetToMarkdown(packet: ElementPacket): string {
     }
   }
   return lines.join("\n");
+}
+
+// 1 -> "1st", 2 -> "2nd", 3 -> "3rd", 11 -> "11th".
+function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
 }

@@ -367,14 +367,66 @@ export default defineContentScript({
       if (vfile) return { file: vfile };
       return undefined;
     };
+    // The handful of attributes that actually identify an element to a person or
+    // a model: ids, test hooks, names, the link target, the accessible label.
+    const IDENTIFYING_ATTRS = [
+      "id", "data-testid", "data-test", "data-cy", "name", "type", "href",
+      "aria-label", "placeholder", "role", "title", "for", "value",
+    ];
+    const attrsOf = (el: Element): Record<string, string> => {
+      const out: Record<string, string> = {};
+      for (const a of IDENTIFYING_ATTRS) {
+        const v = el.getAttribute(a);
+        if (v) out[a] = v.slice(0, 80);
+      }
+      return out;
+    };
+    const LANDMARK = new Set([
+      "header", "nav", "main", "footer", "aside", "section", "article", "form", "ul", "ol", "table",
+    ]);
+    // Walk up keeping only ancestors that anchor (a landmark tag, an id, a role,
+    // or a class), so the path reads as a meaningful containment trail.
+    const ancestorsOf = (el: Element): Array<{ tag: string; id?: string; cls?: string; role?: string }> => {
+      const path: Array<{ tag: string; id?: string; cls?: string; role?: string }> = [];
+      let n = el.parentElement;
+      let depth = 0;
+      while (n && n.tagName !== "HTML" && depth < 8) {
+        const tag = n.tagName.toLowerCase();
+        const id = (n as HTMLElement).id || undefined;
+        const role = n.getAttribute("role") || undefined;
+        const cls = n.classList[0] || undefined;
+        if (LANDMARK.has(tag) || id || role || cls) {
+          const entry: { tag: string; id?: string; cls?: string; role?: string } = { tag };
+          if (id) entry.id = id;
+          if (cls) entry.cls = cls;
+          if (role) entry.role = role;
+          path.unshift(entry);
+        }
+        n = n.parentElement;
+        depth += 1;
+      }
+      return path.slice(-4);
+    };
+    const nthOf = (el: Element): { index: number; total: number } | undefined => {
+      const parent = el.parentElement;
+      if (!parent) return undefined;
+      const same = Array.from(parent.children).filter((c) => c.tagName === el.tagName);
+      return same.length > 1 ? { index: same.indexOf(el) + 1, total: same.length } : undefined;
+    };
     const snapshotOf = (el: Element): ElementSnapshot => {
       const base = captureElement(el);
       const src = sourceOf(el);
+      const attrs = attrsOf(el);
+      const ancestors = ancestorsOf(el);
+      const nth = nthOf(el);
       return {
         ...base,
         a11y: accessibleNode(el),
-        outerHTML: (el as HTMLElement).outerHTML.slice(0, 400),
+        outerHTML: (el as HTMLElement).outerHTML.slice(0, 600),
         ...(src ? { source: src } : {}),
+        ...(Object.keys(attrs).length ? { attrs } : {}),
+        ...(ancestors.length ? { ancestors } : {}),
+        ...(nth ? { nth } : {}),
       };
     };
 
