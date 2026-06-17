@@ -524,7 +524,11 @@ export async function renderAndAnalyze(url: string, root?: string): Promise<UrlR
 
     let axeViolations: Array<{ id: string; impact: string | null; nodes: unknown[]; help: string }> = [];
     try {
-      const res = await new AxeBuilder({ page }).analyze();
+      // WCAG 2.0/2.1/2.2 A + AA success criteria only (the AODA standard), so the
+      // a11y findings are real failures, not axe's best-practice/experimental noise.
+      const res = await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+        .analyze();
       axeViolations = res.violations as typeof axeViolations;
     } catch {
       axeViolations = [];

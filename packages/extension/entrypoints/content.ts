@@ -409,6 +409,10 @@ export default defineContentScript({
         const res = await axe.run(context as never, {
           resultTypes: ["violations"],
           preload: false,
+          // Restrict to the WCAG 2.0/2.1/2.2 A + AA success criteria (the AODA
+          // standard) instead of axe's full set, which mixes in best-practice and
+          // experimental rules that read as noise, not real failures.
+          runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] },
         });
         return axeViolationsToFindings(res.violations as unknown as AxeViolation[]);
       } catch {
@@ -678,10 +682,10 @@ export default defineContentScript({
       } else if (msg.type === "analyze-page") {
         void (async () => {
           const page = capturePage(document);
-          const findings =
-            mode === "standalone"
-              ? [...analyzePage(page), ...(await axeFindings(document))]
-              : analyzePage(page);
+          // axe runs in BOTH modes: the page scan is an accessibility report
+          // first, so it must always carry the real a11y findings, never just
+          // the subjective design notes.
+          const findings = [...analyzePage(page), ...(await axeFindings(document))];
           void browser.runtime.sendMessage({
             type: "page-result",
             findings,

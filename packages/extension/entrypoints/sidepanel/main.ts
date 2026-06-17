@@ -1,4 +1,4 @@
-import { findingsToMarkdown } from "@loupe/engine";
+import { findingsToMarkdown, scoreFindings } from "@loupe/engine";
 import type { ElementPacket, Finding, Score } from "@loupe/engine";
 
 const $ = (id: string): HTMLElement => document.getElementById(id) as HTMLElement;
@@ -241,25 +241,38 @@ function scorePill(score: number, prev: number | null): string {
     : `<span class="spill">${score}/100</span>`;
 }
 
-function renderAudit(findings: Finding[], score: Score): void {
-  lastAudit = { findings, score };
-  // Re-scanning the same page with a different score is the re-verify climb.
-  const prev = lastPageScore !== null && lastPageScore !== score.overall ? lastPageScore : null;
-  lastPageScore = score.overall;
+function renderAudit(findings: Finding[], _score: Score): void {
+  // Real defects (accessibility, layout, cross-browser) are what we score and
+  // dispatch. Subjective design opinions (category "taste") are split out: they
+  // are notes, not failures, so they never tank the score or read as defects.
+  const issues = findings.filter((f) => f.category !== "taste");
+  const notes = findings.filter((f) => f.category === "taste");
+  const issueScore = scoreFindings(issues);
+  lastAudit = { findings: issues, score: issueScore };
+  const prev = lastPageScore !== null && lastPageScore !== issueScore.overall ? lastPageScore : null;
+  lastPageScore = issueScore.overall;
+  const a11y = issues.filter((f) => f.category === "a11y").length;
   $("scoreHost").innerHTML = `<div class="ecard">
-    <div class="etop"><span class="etag">Page health</span>${scorePill(score.overall, prev)}</div>
-    <div class="esub">${findings.length} finding(s) · taste ${score.byCategory.taste} · a11y ${score.byCategory.a11y}</div>
+    <div class="etop"><span class="etag">Accessibility</span>${scorePill(issueScore.overall, prev)}</div>
+    <div class="esub">${issues.length} issue(s)${a11y ? ` · ${a11y} a11y` : ""}${notes.length ? ` · ${notes.length} design note(s)` : ""}</div>
   </div>`;
-  const primary = findings.length
+  const primary = issues.length
     ? `<button class="act gold full" id="fixall">${
-        mode === "connected" ? "Fix all " + findings.length + " with " + escapeHtml(agent) : "Copy all findings"
+        mode === "connected" ? "Fix all " + issues.length + " with " + escapeHtml(agent) : "Copy all issues"
       }</button>`
+    : "";
+  // Subjective design notes: collapsed, clearly labelled, and never auto-fixed.
+  const notesHtml = notes.length
+    ? `<details class="fdetails"><summary>${notes.length} design note${notes.length === 1 ? "" : "s"} (subjective, not scored)</summary>${notes
+        .map(findingHtml)
+        .join("")}</details>`
     : "";
   $("findings").innerHTML =
     (primary ? `<div class="pact">${primary}</div>` : "") +
-    (findings.length
-      ? findings.map(findingHtml).join("")
-      : `<div class="empty">No findings. The page passes loupe's deterministic checks.</div>`);
+    (issues.length
+      ? issues.map(findingHtml).join("")
+      : `<div class="empty">No accessibility or layout issues. The page passes loupe's deterministic checks.</div>`) +
+    notesHtml;
   wireFindingActions();
   document.getElementById("fixall")?.addEventListener("click", () => void doBatchDispatch());
 }

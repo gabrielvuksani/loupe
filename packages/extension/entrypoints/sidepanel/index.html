@@ -109,6 +109,11 @@
       .act.gold { background: linear-gradient(180deg, rgba(232,181,74,0.95), var(--gold-deep)); color: #1a1407; border: 0; }
 
       .empty { color: var(--faint); font-size: 12px; text-align: center; padding: 24px 12px; line-height: 1.6; }
+      .fdetails { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 4px; }
+      .fdetails > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; font-family: "Geist Mono", monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); padding: 8px 2px; }
+      .fdetails > summary::-webkit-details-marker { display: none; }
+      .fdetails > summary::before { content: "\203A"; display: inline-block; transition: transform 0.15s; }
+      .fdetails[open] > summary::before { transform: rotate(90deg); }
       .foot { padding: 10px 16px; border-top: 1px solid var(--line); display: flex; gap: 8px; }
       .foot .btn { flex: 1; }
       .toast { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: rgba(20,23,31,0.92); border: 1px solid var(--line2); border-radius: 10px; padding: 9px 14px; font-size: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.4); opacity: 0; transition: 0.25s; }
